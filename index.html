@@ -40,7 +40,8 @@ try { if (sessionStorage.getItem('rachai-sp')) document.documentElement.classLis
 
 <!-- Barra lateral (web) -->
 <aside class="side">
-  <div class="brand">Rach<i>aí</i></div>
+  <div class="side-top"><div class="brand">Rach<i>aí</i></div>
+    <button class="mini-btn" onclick="recolher()" aria-label="Recolher menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button></div>
   <button class="pill hd-viagem" onclick="ir('viagens')"></button>
   <nav class="sidenav">
     <button class="on" data-t="resumo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>Início</button>
@@ -60,13 +61,13 @@ try { if (sessionStorage.getItem('rachai-sp')) document.documentElement.classLis
   <div class="wrap">
     <div class="stats float">
       <div class="stat cod hide" id="r-cod"></div>
-      <div class="stat"><div class="k">Total dividido</div><div class="v" id="r-total"></div></div>
-      <div class="stat"><div class="k">Saldo da caixinha</div><div class="v" id="r-caixa"></div></div>
+      <div class="stat link" onclick="ir('gastos', 'g-lista')"><div class="k">Total dividido ›</div><div class="v" id="r-total"></div></div>
+      <div class="stat link" onclick="ir('caixa')"><div class="k">Saldo da caixinha ›</div><div class="v" id="r-caixa"></div></div>
     </div>
     <div class="mascote" id="mascote"></div>
     <div class="two">
-      <div><h3>Saldo de cada um</h3><div class="card" id="saldos"></div></div>
-      <div><h3>Quem deve a quem <button class="btn ghost sm" onclick="compartilhar()">WhatsApp</button></h3><div class="card" id="sugestoes"></div></div>
+      <div><h3>Saldo de cada um</h3><div class="card link" id="saldos" onclick="ir('pessoas')"></div></div>
+      <div><h3>Quem deve a quem <button class="btn ghost sm" onclick="compartilhar()">WhatsApp</button></h3><div class="card link" id="sugestoes" onclick="if(!event.target.closest('button'))ir('acerto')"></div></div>
       <div><h3>Gastos <small id="r-qtd"></small></h3><div class="card" id="r-gastos"></div></div>
       <div><h3>Por categoria</h3><div class="card pad" id="r-cats"></div></div>
       <div><h3>Pagamentos de acerto</h3><div class="card" id="acertos"></div></div>
@@ -80,7 +81,8 @@ try { if (sessionStorage.getItem('rachai-sp')) document.documentElement.classLis
   <div class="wrap two">
     <div class="card pad overlap" id="g-card">
       <label style="margin-top:0">Valor</label><input id="g-valor" class="valor" type="text" inputmode="numeric" data-money placeholder="0,00" oninput="falta()">
-      <label>Descrição</label><input id="g-desc" placeholder="Hotel, Uber, ingresso...">
+      <label>Descrição</label><input id="g-desc" placeholder="Mercado, aluguel, Uber...">
+      <label>Observação <small>(opcional)</small></label><input id="g-obs" placeholder="Ex.: pago no cartão da Ana">
       <label class="lbl-link">Categoria <a onclick="ir('cats')">Editar</a></label><div class="chips" id="g-cat"></div>
       <div class="row">
         <div><label>Data</label><input id="g-data" type="date"></div>
@@ -98,7 +100,17 @@ try { if (sessionStorage.getItem('rachai-sp')) document.documentElement.classLis
       <button class="btn" id="g-btn" onclick="salvarGasto()">Adicionar gasto</button>
       <button class="btn outline hide" id="g-cancel" onclick="limparGasto()">Cancelar edição</button>
     </div>
-    <div><h3>Todos os gastos</h3><div class="card" id="lista-gastos"></div></div>
+    <div id="g-lista"><h3>Todos os gastos <small id="g-tot"></small></h3>
+      <div class="filtros">
+        <select id="f-ord" onchange="render()" aria-label="Ordenar"><option value="data">Mais recentes</option><option value="valor">Maior valor</option><option value="nome">Descrição (A-Z)</option></select>
+        <select id="f-cat" onchange="render()" aria-label="Categoria"></select>
+        <select id="f-pes" onchange="render()" aria-label="Pessoa"></select>
+        <button class="btn outline sm" onclick="limparFiltros()">Limpar filtros</button>
+        <label>De<input id="f-de" type="date" onchange="render()"></label>
+        <label>Até<input id="f-ate" type="date" onchange="render()"></label>
+      </div>
+      <div class="card" id="lista-gastos"></div></div>
+  <div id="g-fundo" class="hide" onclick="limparGasto()"></div>
   </div>
 </section>
 
@@ -150,19 +162,19 @@ try { if (sessionStorage.getItem('rachai-sp')) document.documentElement.classLis
 <section class="tab" id="t-viagens">
   <div class="hero small"><div class="wrap"><h1>Grupos</h1></div></div>
   <div class="wrap">
-    <h3>Grupo atual</h3><div class="card pad" id="v-atual"></div>
+    <h3>Meus grupos</h3><div class="card" id="lista-viagens"></div>
+    <h3>Novo grupo</h3>
+    <div class="search">
+      <div class="field"><input id="v-nome" placeholder="Nome do grupo (ex.: Casa, Viagem, Mercado)" style="padding-left:14px" onkeydown="if(event.key==='Enter')novaViagem()"></div>
+      <button class="round" onclick="novaViagem()" aria-label="Novo grupo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+    </div>
+    <h3>Código do grupo</h3><div class="card pad" id="v-atual"></div>
     <h3>Entrar num grupo</h3>
     <p class="hint">Recebeu um código? Digite aqui para ver e editar o mesmo grupo.</p>
     <div class="search">
       <div class="field"><input id="v-cod" placeholder="Código (ex.: K7P2XQ9M)" style="padding-left:14px;text-transform:uppercase" onkeydown="if(event.key==='Enter')entrarViagem()"></div>
       <button class="round" onclick="entrarViagem()" aria-label="Entrar no grupo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
     </div>
-    <h3>Novo grupo</h3>
-    <div class="search">
-      <div class="field"><input id="v-nome" placeholder="Nome do grupo (ex.: Casa, Viagem, Mercado)" style="padding-left:14px" onkeydown="if(event.key==='Enter')novaViagem()"></div>
-      <button class="round" onclick="novaViagem()" aria-label="Novo grupo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
-    </div>
-    <h3>Meus grupos</h3><div class="card" id="lista-viagens"></div>
   </div>
 </section>
 
@@ -210,12 +222,11 @@ try { if (sessionStorage.getItem('rachai-sp')) document.documentElement.classLis
     <div class="card"><div class="item" onclick="tutorial(0)" style="cursor:pointer"><div class="t"><b>Ver tutorial</b><span>O Carteirinha mostra cada tela do app</span></div><span class="chev">›</span></div></div>
     <h3>Organização</h3>
     <div class="card">
-      <div class="item" onclick="ir('viagens')" style="cursor:pointer"><div class="t"><b>Grupos</b><span>Criar, trocar e renomear grupos</span></div><span class="chev">›</span></div>
       <div class="item" onclick="ir('cats')" style="cursor:pointer"><div class="t"><b>Categorias</b><span>Criar e editar categorias de gasto</span></div><span class="chev">›</span></div>
     </div>
     <h3>Backup</h3>
     <div class="card pad">
-      <div style="font-size:14px;color:var(--muted)">Os dados ficam só neste aparelho. Exporte de vez em quando.</div>
+      <div style="font-size:14px;color:var(--muted)">Os grupos com código ficam salvos online. Exporte de vez em quando para ter uma cópia.</div>
       <div class="row">
         <button class="btn" onclick="exportar()">Exportar</button>
         <button class="btn ghost" onclick="document.getElementById('imp').click()">Importar</button>
@@ -270,6 +281,10 @@ const nome = id => id === CAIXA ? 'Caixinha Pix' : (db.pessoas.find(p => p.id ==
 const ini = n => n.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const porData = (a, b) => b.data.localeCompare(a.data);
+const pessoasAZ = () => db.pessoas.slice().sort((a, b) => a.nome.localeCompare(b.nome, 'pt'));
+// Marca de alteração por item: a sincronização usa para decidir qual versão vale.
+const agora = () => Date.now();
+const apagar = id => (db.apagados = db.apagados || {})[id] = agora();
 const salvar = () => { store = limpo(store); db = store.viagens[store.atual]; localStorage.setItem(STORE, JSON.stringify(store)); render(); enviar(); };
 const saldoCaixa = (ignorar) => db.caixa.reduce((t, c) => t + (c.tipo === 'aporte' ? c.valor : -c.valor), 0)
   - db.gastos.filter(g => g.pagou === CAIXA && g.id !== ignorar).reduce((t, g) => t + g.valor, 0);
@@ -324,16 +339,16 @@ function sugestoes(s) {
 }
 
 const linhaGasto = (g, acoes) => `<div class="item">${av(ini(nome(g.pagou)))}
-  <div class="t"><b>${g.desc}</b><span>${g.cat || 'Outros'} · ${dataBR(g.data)} ·${g.pagou === CAIXA ? 'pago com a caixinha' : `${nome(g.pagou)} pagou · ${g.vals ? 'valores diferentes · ' : ''}${g.part.length === db.pessoas.length ? 'todos' : g.part.map(nome).join(', ')}`}</span></div>
+  <div class="t"><b>${g.desc}</b>${g.obs ? `<em class="obs">${g.obs}</em>` : ''}<span>${g.cat || 'Outros'} · ${dataBR(g.data)} ·${g.pagou === CAIXA ? 'pago com a caixinha' : `${nome(g.pagou)} pagou · ${g.vals ? 'valores diferentes · ' : ''}${g.part.length === db.pessoas.length ? 'todos' : g.part.map(nome).join(', ')}`}</span></div>
   <div class="v">${brl(g.valor)}</div>${acoes ? `<div class="acts">${btnEdit(`editarGasto('${g.id}')`)}${btnDel(`del('gastos','${g.id}')`)}</div>` : ''}</div>`;
 
 function renderPart(marcados) {
-  $('g-part').innerHTML = db.pessoas.map(p =>
+  $('g-part').innerHTML = pessoasAZ().map(p =>
     `<label><input type="checkbox" value="${p.id}" ${!marcados || marcados.includes(p.id) ? 'checked' : ''}>${p.nome}</label>`).join('') || '<span class="empty">Cadastre pessoas primeiro</span>';
 }
 
 function renderVals(vals) {
-  $('g-vals').innerHTML = db.pessoas.map(p => `<div class="vrow"><span>${p.nome}</span>
+  $('g-vals').innerHTML = pessoasAZ().map(p => `<div class="vrow"><span>${p.nome}</span>
     <input type="text" inputmode="numeric" data-money placeholder="0,00" data-id="${p.id}" value="${vals && vals[p.id] ? fmtV(vals[p.id]) : ''}" oninput="falta()"></div>`).join('');
   falta();
 }
@@ -358,7 +373,7 @@ function falta() {
 const mostrarPart =() => $('g-divide').classList.toggle('hide', $('g-pagou').value === CAIXA);
 
 function render() {
-  const opts = db.pessoas.map(p => `<option value="${p.id}">${p.nome}</option>`).join('');
+  const opts = pessoasAZ().map(p => `<option value="${p.id}">${p.nome}</option>`).join('');
   ['g-pagou', 'a-de', 'a-para'].forEach(id => {
     const v = $(id).value;
     $(id).innerHTML = opts + (id === 'g-pagou' ? `<option value="${CAIXA}">Caixinha Pix</option>` : '');
@@ -399,7 +414,7 @@ function render() {
   const fatias = usadas.map(c => { const a = acc; acc += porCat[c] / totCat * 100; return `${cor(c)} ${a}% ${acc}%`; });
   $('r-cats').innerHTML = usadas.length ? `<div class="donut" style="background:conic-gradient(${fatias.join(',')})">
     <div class="hole"><small>Total</small><b>${brl(totCat)}</b></div></div>
-    <div class="legend">${usadas.map(c => `<div><i style="background:${cor(c)}"></i><span>${c}</span>
+    <div class="legend">${usadas.map(c => `<div class="link" onclick="verCat('${c}')"><i style="background:${cor(c)}"></i><span>${c}</span>
       <em>${Math.round(porCat[c] / totCat * 100)}%</em><b>${brl(porCat[c])}</b></div>`).join('')}</div>`
     : vazio('Nenhum gasto');
 
@@ -419,7 +434,7 @@ function render() {
     <div class="acts">${v.cod ? `<button class="icon-btn" onclick="compartilharCod('${v.cod}')" aria-label="Compartilhar código"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg></button>` : ''}${btnEdit(`renomearViagem('${id}')`)}${btnDel(`delViagem('${id}')`)}</div></div>`).join('');
   $('cx-info').textContent = `Entrou ${brl(aportes)} · gasto ${brl(aportes - cx)}`;
 
-  $('saldos').innerHTML = db.pessoas.map(p => `<div class="item">${av(ini(p.nome), s[p.id] > 0)}
+  $('saldos').innerHTML = pessoasAZ().map(p => `<div class="item">${av(ini(p.nome), s[p.id] > 0)}
     <div class="t"><b>${p.nome}</b><span>${s[p.id] < 0 ? 'deve' : s[p.id] > 0 ? 'tem a receber' : 'tudo certo'}</span></div>
     <div class="v ${s[p.id] < 0 ? 'neg' : s[p.id] > 0 ? 'pos' : ''}">${brl(Math.abs(s[p.id]))}</div></div>`).join('')
     || vazio('Cadastre as pessoas na aba Pessoas');
@@ -431,7 +446,16 @@ function render() {
 
   const gastos = db.gastos.slice().sort(porData);
   $('r-gastos').innerHTML = gastos.map(g => linhaGasto(g, false)).join('') || vazio('Nenhum gasto');
-  $('lista-gastos').innerHTML = gastos.map(g => linhaGasto(g, true)).join('') || vazio('Nenhum gasto');
+  // Lista da aba Gastos com filtros (categoria, pessoa, período) e ordenação.
+  const sel = (id, ops, todos) => { const v = $(id).value; $(id).innerHTML = `<option value="">${todos}</option>` + ops; $(id).value = v; };
+  sel('f-cat', cats().map(c => `<option>${c}</option>`).join(''), 'Todas as categorias');
+  sel('f-pes', pessoasAZ().map(p => `<option value="${p.id}">${p.nome}</option>`).join(''), 'Todas as pessoas');
+  const fc = $('f-cat').value, fp = $('f-pes').value, de = $('f-de').value, ate = $('f-ate').value;
+  const ord = { data: porData, valor: (a, b) => b.valor - a.valor, nome: (a, b) => a.desc.localeCompare(b.desc, 'pt') }[$('f-ord').value];
+  const filt = db.gastos.filter(g => (!fc || (g.cat || OUTROS) === fc) && (!fp || g.pagou === fp || g.part.includes(fp))
+    && (!de || g.data >= de) && (!ate || g.data <= ate)).sort(ord);
+  $('g-tot').textContent = `${filt.length} · ${brl(filt.reduce((t, g) => t + g.valor, 0))}`;
+  $('lista-gastos').innerHTML = filt.map(g => linhaGasto(g, true)).join('') || vazio(db.gastos.length ? 'Nenhum gasto com esses filtros' : 'Nenhum gasto');
 
   $('acertos').innerHTML = $('lista-acertos').innerHTML = db.acertos.slice().sort(porData).map(a => `<div class="item">${av(ini(nome(a.de)))}
     <div class="t"><b>${nome(a.de)} → ${nome(a.para)}</b><span>${dataBR(a.data)}</span></div>
@@ -448,13 +472,15 @@ function render() {
     || vazio('Nenhuma movimentação');
 
   const busca = $('p-nome').value.trim().toLowerCase();
-  $('lista-pessoas').innerHTML = db.pessoas.filter(p => p.nome.toLowerCase().includes(busca)).map(p => `<div class="item">${av(ini(p.nome))}
+  $('lista-pessoas').innerHTML = pessoasAZ().filter(p => p.nome.toLowerCase().includes(busca)).map(p => `<div class="item">${av(ini(p.nome))}
     <div class="t"><b>${p.nome}</b><span>${brl(Math.abs(s[p.id]))} ${s[p.id] < 0 ? 'a pagar' : 'a receber'}</span></div>
     <div class="acts">${btnDel(`delPessoa('${p.id}')`)}</div></div>`).join('')
     || vazio(busca ? 'Toque no + para adicionar' : 'Ninguém ainda');
 }
 
-function ir(tab, alvo) {
+// Cada troca de tela entra no histórico: o voltar do celular (gesto ou botão) volta para a tela anterior.
+function ir(tab, alvo, doHistorico) {
+  if (!doHistorico && (history.state || {}).tab !== tab) history.pushState({ tab }, '');
   document.querySelectorAll('nav button, .tab').forEach(x => x.classList.remove('on'));
   document.querySelectorAll(`nav [data-t=${tab}]`).forEach(b => b.classList.add('on'));
   $('t-' + tab).classList.add('on');
@@ -465,6 +491,25 @@ function ir(tab, alvo) {
 function novoGasto() {
   ir('gastos');
   limparGasto();
+}
+
+function verCat(c) {
+  limparFiltros();
+  $('f-cat').value = c;
+  render();
+  ir('gastos', 'g-lista');
+}
+
+function limparFiltros() {
+  ['f-cat', 'f-pes', 'f-de', 'f-ate'].forEach(id => $(id).value = '');
+  $('f-ord').value = 'data';
+  render();
+}
+
+// Barra lateral da web recolhida (só ícones); a escolha fica salva no aparelho.
+function recolher(on = !document.body.classList.contains('mini')) {
+  document.body.classList.toggle('mini', on);
+  localStorage.setItem('rachai-mini', on ? '1' : '');
 }
 
 // Personagem do Rachaí: mesma carteira do logo, com expressões diferentes.
@@ -503,7 +548,6 @@ function fecharSplash() {
   if (!el) return;
   el.classList.add('out');
   setTimeout(() => el.remove(), 400);
-  convidarTutorial();
 }
 
 // Tutorial: o Carteirinha passa por cada tela explicando. Na primeira vez ele só convida.
@@ -521,13 +565,6 @@ function falaTut(pose, msg, dots) {
   $('tut-mascote').innerHTML = mascote(pose, 96);
   $('tut-msg').innerHTML = `<span>${msg}</span>`;
   $('tut-dots').innerHTML = dots;
-}
-function convidarTutorial() {
-  if (localStorage.getItem('rachai-tut')) return;
-  falaTut('feliz', 'Oi! Eu sou o Carteirinha. Quer que eu te mostre como o app funciona?', '');
-  $('tut-sair').textContent = 'Agora não';
-  $('tut-prox').textContent = 'Ver tutorial';
-  $('tut-prox').onclick = () => tutorial(0);
 }
 function tutorial(i) {
   if (i === PASSOS.length) return fimTutorial();
@@ -548,8 +585,13 @@ const mascote = (pose, tam) => `<svg viewBox="0 0 200 200" width="${tam}" height
 function addPessoa() {
   const n = $('p-nome').value.trim();
   if (!n) return $('p-nome').focus();
-  if (db.pessoas.some(p => p.nome.toLowerCase() === n.toLowerCase())) return alert('Essa pessoa já está no grupo.');
-  db.pessoas.push({ id: uid(), nome: n });
+  if (/[<>"]/.test(n)) return alert('O nome não pode ter < > ou aspas.');
+  if (db.pessoas.some(p => p.nome.toLowerCase() === n.toLowerCase())) {
+    $('p-nome').value = ''; // limpa a busca para a lista voltar inteira
+    salvar();
+    return alert('Essa pessoa já está no grupo.');
+  }
+  db.pessoas.push({ id: uid(), nome: n, mod: agora() });
   $('p-nome').value = '';
   salvar();
 }
@@ -558,10 +600,14 @@ function delPessoa(id) {
   const usada = db.gastos.some(g => g.pagou === id || g.part.includes(id)) || db.acertos.some(a => a.de === id || a.para === id);
   if (usada) return alert('Essa pessoa já tem gastos ou acertos. Edite ou apague-os antes.');
   db.pessoas = db.pessoas.filter(p => p.id !== id);
+  apagar(id);
   salvar();
 }
 
+let ultimoGasto = 0;
 function salvarGasto() {
+  if (Date.now() - ultimoGasto < 1000) return; // toque duplo: já foi salvo
+  if (/[<>"]/.test($('g-desc').value)) return alert('A descrição não pode ter < > ou aspas.');
   const valor = cents($('g-valor').value);
   const pagaCaixa = $('g-pagou').value === CAIXA;
   const porValor = !pagaCaixa && modo() === 'valor';
@@ -580,11 +626,14 @@ function salvarGasto() {
   const data = lerData('g-data');
   if (!data) return;
   const cat = (document.querySelector('input[name=gcat]:checked') || { value: 'Outros' }).value;
-  const g = { id: editGasto || uid(), desc: $('g-desc').value.trim(), valor, data, pagou: $('g-pagou').value, part, cat };
+  const g = { id: editGasto || uid(), desc: $('g-desc').value.trim(), valor, data, pagou: $('g-pagou').value, part, cat, mod: agora() };
+  const obs = $('g-obs').value.trim().replace(/[<>"]/g, '');
+  if (obs) g.obs = obs;
   if (vals) g.vals = vals;
   if (editGasto) db.gastos = db.gastos.map(x => x.id === editGasto ? g : x);
   else db.gastos.push(g);
   avisar(editGasto ? 'Gasto atualizado' : 'Gasto concluído');
+  ultimoGasto = Date.now();
   limparGasto();
   salvar();
 }
@@ -592,7 +641,7 @@ function salvarGasto() {
 function editarGasto(id) {
   const g = db.gastos.find(x => x.id === id);
   editGasto = id;
-  $('g-desc').value = g.desc; $('g-valor').value = fmtV(g.valor); $('g-data').value = g.data; $('g-pagou').value = g.pagou;
+  $('g-desc').value = g.desc; $('g-obs').value = g.obs || ''; $('g-valor').value = fmtV(g.valor); $('g-data').value = g.data; $('g-pagou').value = g.pagou;
   document.querySelector(`input[name=gmodo][value=${g.vals ? 'valor' : 'igual'}]`).checked = true;
   document.querySelector(`input[name=gcat][value="${g.cat || 'Outros'}"]`).checked = true;
   renderPart(g.part);
@@ -604,7 +653,7 @@ function editarGasto(id) {
 
 function limparGasto() {
   editGasto = null;
-  $('g-desc').value = $('g-valor').value = ''; $('g-data').value = hoje();
+  $('g-desc').value = $('g-obs').value = $('g-valor').value = ''; $('g-data').value = hoje();
   document.querySelector('input[name=gmodo][value=igual]').checked = true;
   document.querySelectorAll('input[name=gcat]').forEach(i => i.checked = false);
   renderPart();
@@ -621,7 +670,7 @@ function salvarCaixa() {
   if (!desc || !(valor > 0)) return alert('Preencha descrição e valor.');
   const data = lerData('c-data');
   if (!data) return;
-  const c = { id: editCaixa || uid(), tipo, desc, valor, data };
+  const c = { id: editCaixa || uid(), tipo, desc, valor, data, mod: agora() };
   if (editCaixa) db.caixa = db.caixa.map(x => x.id === editCaixa ? c : x);
   else db.caixa.push(c);
   avisar(editCaixa ? 'Alterações salvas' : 'Valor adicionado');
@@ -647,7 +696,23 @@ function modoEdicao(p, on, titulo, botao) {
   $(p + '-btn').textContent = botao;
   $(p + '-cancel').classList.toggle('hide', !on);
   $(p + '-card').classList.toggle('editing', on);
-  if (on) window.scrollTo({ top: 0, behavior: 'smooth' });
+  // Edição do gasto abre em popup sobre a lista, sem subir a tela até o formulário.
+  // Vai para o body enquanto edita: a tela tem animação com transform, que prenderia o position: fixed.
+  if (p === 'g') {
+    const card = $('g-card'), topo = $('g-lista').getBoundingClientRect().top;
+    if (on && card.parentNode !== document.body) {
+      document.body.append($('g-fundo'), card);
+      window.scrollBy(0, $('g-lista').getBoundingClientRect().top - topo); // a lista não pula ao tirar o formulário de cima
+      history.pushState({ tab: 'gastos', edit: 1 }, ''); // voltar do celular fecha só o popup
+    } else if (!on && card.parentNode === document.body) {
+      $('g-lista').before(card);
+      window.scrollBy(0, $('g-lista').getBoundingClientRect().top - topo);
+      if ((history.state || {}).edit) history.back();
+    }
+    card.classList.toggle('modal', on);
+    $('g-fundo').classList.toggle('hide', !on);
+  }
+  else if (on) window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function addAcerto() {
@@ -655,7 +720,7 @@ function addAcerto() {
   if (!(valor > 0) || !de || de === para) return alert('Escolha duas pessoas diferentes e um valor.');
   const data = lerData('a-data');
   if (!data) return;
-  db.acertos.push({ id: uid(), de, para, valor, data });
+  db.acertos.push({ id: uid(), de, para, valor, data, mod: agora() });
   $('a-valor').value = '';
   salvar();
   avisar('Acerto registrado');
@@ -663,7 +728,7 @@ function addAcerto() {
 
 function quitar(de, para, valor) {
   if (!confirm(`Registrar que ${nome(de)} pagou ${brl(valor)} para ${nome(para)}?`)) return;
-  db.acertos.push({ id: uid(), de, para, valor, data: hoje() });
+  db.acertos.push({ id: uid(), de, para, valor, data: hoje(), mod: agora() });
   salvar();
   avisar('Conta quitada');
 }
@@ -671,6 +736,7 @@ function quitar(de, para, valor) {
 function del(lista, id) {
   if (!confirm('Apagar este item?')) return;
   db[lista] = db[lista].filter(x => x.id !== id);
+  apagar(id);
   if (id === editGasto) limparGasto();
   if (id === editCaixa) limparCaixa();
   salvar();
@@ -720,7 +786,7 @@ function addCat() {
 }
 
 // Troca a categoria "de" por "para" nos gastos de todas as viagens.
-const moverCat = (de, para) => Object.values(store.viagens).forEach(v => v.gastos.forEach(g => { if (g.cat === de) g.cat = para; }));
+const moverCat = (de, para) => Object.values(store.viagens).forEach(v => v.gastos.forEach(g => { if (g.cat === de) { g.cat = para; g.mod = agora(); } }));
 
 function renomearCat(i) {
   const antigo = cats()[i], n = (prompt('Nome da categoria', antigo) || '').trim();
@@ -763,6 +829,7 @@ function renomearViagem(id) {
   const n = prompt('Nome do grupo', store.viagens[id].nome);
   if (!n || !n.trim()) return;
   store.viagens[id].nome = n.trim();
+  store.viagens[id].nomeMod = agora();
   salvar();
 }
 
@@ -774,15 +841,29 @@ function delViagem(id) {
   else salvar();
 }
 
-// Sincronização com o Supabase: cada viagem tem um código; quem tem o código vê e edita a mesma viagem.
-// shortcut: a última gravação vence; se os dois editarem no mesmo minuto, um pode perder a alteração.
+// Sincronização com o Supabase: cada grupo tem um código; quem tem o código vê e edita o mesmo grupo.
+// Antes de gravar, o app busca a versão do servidor e mescla item por item (pelo id), sem sobrescrever o grupo inteiro.
+// shortcut: dois envios no mesmo instante ainda podem perder um item; mesclar no servidor se isso acontecer.
 const SB = 'https://rclclrjxvdxcoqcvridt.supabase.co/rest/v1/rpc/';
 const SB_KEY = 'sb_publishable_J_83tpqeyihcxoc8UqT1FQ_VE8L-R2e'; // publishable key (Project Settings -> API Keys), pública por natureza
 const rpc = (fn, body) => fetch(SB + fn, { method: 'POST', body: JSON.stringify(body),
   headers: { apikey: SB_KEY, 'Content-Type': 'application/json' } })
   .then(r => { if (!r.ok) throw r; return r.status === 204 ? null : r.json(); });
 const novoCod = () => Array.from(crypto.getRandomValues(new Uint8Array(8)), b => 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'[b % 31]).join('');
-// Viagens com alteração ainda não enviada (sem internet, por exemplo).
+const LISTAS = ['pessoas', 'gastos', 'acertos', 'caixa'];
+// Junta local (a) e servidor (b): soma os itens dos dois; no mesmo id vale a alteração mais nova; apagados somem dos dois.
+function mesclar(a, b) {
+  if (!b) return a;
+  const apagados = { ...(b.apagados || {}), ...(a.apagados || {}) };
+  const out = { ...b, ...a, apagados, nome: (a.nomeMod || 0) >= (b.nomeMod || 0) ? a.nome : b.nome };
+  LISTAS.forEach(k => {
+    const m = {};
+    (b[k] || []).concat(a[k] || []).forEach(it => { if (!m[it.id] || (it.mod || 0) >= (m[it.id].mod || 0)) m[it.id] = it; });
+    out[k] = Object.values(m).filter(it => !apagados[it.id]);
+  });
+  return out;
+}
+// Grupos com alteração ainda não enviada (sem internet, por exemplo).
 const pend = new Set(JSON.parse(localStorage.getItem('rachai-pend') || '[]'));
 const guardaPend = () => localStorage.setItem('rachai-pend', JSON.stringify([...pend]));
 let envioT;
@@ -791,28 +872,31 @@ function enviar() {
   if (!db.cod) { db.cod = novoCod(); localStorage.setItem(STORE, JSON.stringify(store)); }
   pend.add(store.atual); guardaPend();
   clearTimeout(envioT);
-  envioT = setTimeout(enviarPend, 800);
+  envioT = setTimeout(sincronizar, 800);
 }
-function enviarPend() {
-  return Promise.all([...pend].map(id => {
-    const v = store.viagens[id];
-    if (!v) return pend.delete(id);
-    const { cod, ...dados } = v;
-    return rpc('put_viagem', { p_cod: cod, p_dados: dados }).then(() => pend.delete(id)).catch(() => {});
-  })).then(guardaPend);
-}
-// Busca a versão do servidor das viagens compartilhadas (só as que não têm envio pendente).
-function puxar() {
-  if (!SB_KEY || document.hidden) return;
-  enviarPend().then(() => Promise.all(Object.entries(store.viagens).filter(([id, v]) => v.cod && !pend.has(id)).map(([id, v]) =>
-    rpc('get_viagem', { p_cod: v.cod }).then(d => {
-      if (d && JSON.stringify({ ...d, cod: v.cod }) !== JSON.stringify(v)) store.viagens[id] = limpo({ ...viagemVazia(v.nome), ...d, cod: v.cod });
-    }).catch(() => {})))).then(() => {
-    store = limpo(store); db = store.viagens[store.atual];
+// Para cada grupo com código: busca o servidor, mescla, guarda local e só envia se o local tinha novidade.
+let sincronizando = false;
+function sincronizar() {
+  if (!SB_KEY || sincronizando) return Promise.resolve();
+  sincronizando = true;
+  return Promise.all(Object.entries(store.viagens).filter(([, v]) => v.cod).map(([id, v]) =>
+    rpc('get_viagem', { p_cod: v.cod }).then(remoto => {
+      const atual = store.viagens[id];
+      if (!atual) return;
+      const m = limpo({ ...viagemVazia(atual.nome), ...mesclar(atual, remoto), cod: atual.cod });
+      store.viagens[id] = m;
+      const { cod, ...dados } = m;
+      if (!remoto || JSON.stringify(dados) !== JSON.stringify({ ...viagemVazia(m.nome), ...remoto }))
+        return rpc('put_viagem', { p_cod: cod, p_dados: dados }).then(() => pend.delete(id));
+      pend.delete(id);
+    }).catch(() => {}))).then(() => {
+    guardaPend();
+    db = store.viagens[store.atual];
     localStorage.setItem(STORE, JSON.stringify(store));
     if (!editGasto && !editCaixa) render();
-  });
+  }).finally(() => sincronizando = false);
 }
+const puxar = () => { if (!document.hidden) sincronizar(); };
 let verCod = false;
 function entrarViagem(link) {
   const cod = (link || $('v-cod').value).trim().toUpperCase();
@@ -823,7 +907,7 @@ function entrarViagem(link) {
   rpc('get_viagem', { p_cod: cod }).then(d => {
     if (!d) return alert('Nenhum grupo com esse código.');
     const id = uid();
-    store.viagens[id] = { ...viagemVazia('Grupo'), ...d, cod };
+    store.viagens[id] = limpo({ ...viagemVazia('Grupo'), ...d, cod });
     $('v-cod').value = '';
     trocarViagem(id);
     avisar('Você entrou no grupo');
@@ -843,6 +927,7 @@ document.querySelectorAll('nav button[data-t]').forEach(b => b.onclick = () => i
 document.addEventListener('input', e => {
   const el = e.target;
   if (!('money' in el.dataset)) return;
+  if (cents(el.value) > MAXV) avisar('Valor máximo é R$ 1.000.000,00', true);
   const c = Math.min(cents(el.value), MAXV);
   el.value = c ? fmtV(c) : '';
 }, true);
@@ -859,7 +944,14 @@ function avisar(msg, erro) {
 function alert(msg) { avisar(msg, true); }
 
 setTema(document.documentElement.dataset.theme);
-salvar();
+recolher(!!localStorage.getItem('rachai-mini'));
+history.replaceState({ tab: 'resumo' }, '');
+window.addEventListener('popstate', e => {
+  if (editGasto) return limparGasto(); // voltar com o popup aberto só fecha a edição
+  ir((e.state || {}).tab || 'resumo', null, true);
+});
+// Ao abrir só desenha: nada é enviado antes da primeira busca no servidor (evita apagar dados do outro aparelho).
+render();
 if (document.documentElement.classList.contains('sem-splash')) fecharSplash();
 else { try { sessionStorage.setItem('rachai-sp', '1'); } catch (e) {} passoSplash(); }
 puxar();

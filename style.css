@@ -31,7 +31,7 @@ body { margin: 0; font-family: var(--font); background: var(--bg); color: var(--
 button.pill { border: 0; font-family: var(--font); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .top-r { display: flex; align-items: center; gap: 10px; min-width: 0; max-width: 72%; }
 .top-r .pill { flex: 1; min-width: 0; }
-.gear { width: 38px; height: 38px; border-radius: 50%; border: 0; background: rgba(240,253,255,.12); color: #F0FDFF; display: grid; place-items: center; cursor: pointer; flex-shrink: 0; }
+.gear { width: 44px; height: 44px; border-radius: 50%; border: 0; background: rgba(240,253,255,.12); color: #F0FDFF; display: grid; place-items: center; cursor: pointer; flex-shrink: 0; }
 
 .hero { background: var(--hero); color: #F0FDFF; border-radius: 0 0 32px 32px; padding: 4px 0 70px; }
 .hero .lbl { text-align: center; color: var(--tint); font-size: 13px; font-weight: 600; margin-top: 18px; }
@@ -97,10 +97,10 @@ input.valor { font-family: var(--display); font-size: 28px; font-weight: 700; }
 .btn:active { transform: scale(.98); filter: brightness(.95); }
 .btn.ghost { background: var(--tint); color: var(--tint-ink); }
 .btn.outline { background: transparent; color: var(--primary); border: 2px solid var(--primary); margin-top: 10px; }
-.btn.sm { display: inline-block; width: auto; margin: 0; padding: 8px 14px; min-height: 0; font-size: 14px; }
+.btn.sm { display: inline-block; width: auto; margin: 0; padding: 8px 14px; min-height: 44px; font-size: 14px; }
 .round { width: 50px; height: 50px; border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; flex-shrink: 0; cursor: pointer; }
 .round:active { transform: scale(.94); }
-.icon-btn { background: none; border: 0; padding: 6px; color: var(--muted); cursor: pointer; display: inline-flex; border-radius: 10px; }
+.icon-btn { background: none; border: 0; padding: 6px; min-width: 44px; min-height: 44px; justify-content: center; align-items: center; color: var(--muted); cursor: pointer; display: inline-flex; border-radius: 10px; }
 .icon-btn:active { background: var(--soft); }
 
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -238,3 +238,33 @@ input.valor { font-family: var(--display); font-size: 28px; font-weight: 700; }
 .tut-fala .sp-dots { margin-top: 12px; }
 .tut-fala .sp-dots i { background: var(--line); }
 .tut-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+
+/* Itens clicáveis do Início */
+.link { cursor: pointer; }
+.stat.link:active, .card.link:active, .legend .link:active { opacity: .7; }
+
+/* Filtros e ordenação da lista de gastos */
+.filtros { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.filtros select, .filtros input { padding: 10px 12px; font-size: 14px; }
+.filtros label { font-size: 12px; font-weight: 700; color: var(--muted); display: grid; gap: 4px; margin: 0; }
+.filtros .btn { align-self: stretch; margin: 0; }
+.obs { display: block; font-style: italic; font-size: 13px; color: var(--muted); }
+
+/* Edição de gasto em popup sobre a lista */
+#g-fundo { position: fixed; inset: 0; z-index: 80; background: rgba(2,11,22,.55); }
+#g-card.modal { position: fixed; z-index: 81; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(520px, calc(100% - 32px)); max-height: calc(100% - 48px); overflow-y: auto; margin: 0; box-shadow: 0 16px 40px rgba(0,0,0,.3); animation: none; }
+
+/* Barra lateral recolhível (web) */
+.side-top { display: flex; align-items: center; justify-content: space-between; }
+.mini-btn { width: 34px; height: 34px; border-radius: 10px; border: 0; background: rgba(240,253,255,.1); color: #F0FDFF; display: grid; place-items: center; cursor: pointer; transition: transform .2s; }
+@media (min-width: 900px) {
+  body.mini { padding-left: 88px; }
+  .mini .side { width: 88px; padding: 32px 14px; align-items: center; }
+  .mini .side-top { flex-direction: column; gap: 12px; }
+  .mini .side .brand, .mini .side .pill { display: none; }
+  .mini .mini-btn { transform: rotate(180deg); }
+  .mini .sidenav button { font-size: 0; gap: 0; justify-content: center; padding: 12px; }
+  .mini .side > .btn { font-size: 0; width: 52px; height: 52px; padding: 0; border-radius: 50%; }
+  .mini .side > .btn::before { content: '+'; font-size: 26px; }
+}
+@media (max-width: 899px) { .mini-btn { display: none; } }
