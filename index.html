@@ -793,13 +793,30 @@ function exportar() {
   a.click();
 }
 
+// Restaurar backup: o grupo fica igual ao arquivo, aqui e nos outros aparelhos.
+// Vai para o grupo com o mesmo código (ou o atual) e mantém o código desse grupo.
 async function importar(input) {
   const f = input.files[0];
-  if (!f || !await dialogo('Substituir os dados atuais pelo backup?', { ok: 'Substituir' })) return;
-  f.text().then(t => {
-    store.viagens[store.atual] = { ...viagemVazia(db.nome), ...JSON.parse(t) };
-    location.reload(localStorage.setItem(STORE, JSON.stringify(store)));
-  });
+  input.value = ''; // permite escolher o mesmo arquivo de novo
+  if (!f) return;
+  let b;
+  try { b = limpo(JSON.parse(await f.text())); } catch (e) { b = null; }
+  if (!b || !Array.isArray(b.pessoas) || !Array.isArray(b.gastos)) return alert('Arquivo de backup inválido.');
+  const id = Object.keys(store.viagens).find(k => b.cod && store.viagens[k].cod === b.cod) || store.atual;
+  const alvo = store.viagens[id];
+  if (!await dialogo(`Substituir o grupo "${alvo.nome}" pelo backup "${b.nome || ''}"?`, { ok: 'Substituir' })) return;
+  // O que existe hoje (aqui e no servidor) e não está no backup vira apagado; senão a sincronização traria de volta.
+  const remoto = alvo.cod ? await rpc('get_viagem', { p_cod: alvo.cod }).catch(() => null) : null;
+  const t = agora();
+  const novo = { ...viagemVazia(b.nome || alvo.nome), ...b, cod: alvo.cod, nomeMod: t, catsMod: t, apagados: {} };
+  const manter = new Set(LISTAS.flatMap(k => novo[k].map(x => x.id)));
+  [alvo, remoto || {}].forEach(v => LISTAS.forEach(k => (v[k] || []).forEach(x => { if (!manter.has(x.id)) novo.apagados[x.id] = t; })));
+  LISTAS.forEach(k => novo[k].forEach(x => x.mod = t)); // itens do backup ficam mais novos que qualquer edição anterior
+  novo.cats = b.cats || [...new Set([...novo.gastos.map(g => g.cat || OUTROS).filter(c => c !== OUTROS), OUTROS])];
+  if (!novo.cod) delete novo.cod;
+  store.viagens[id] = novo;
+  trocarViagem(id);
+  avisar('Backup restaurado');
 }
 
 function addCat() {
@@ -881,7 +898,8 @@ const LISTAS = ['pessoas', 'gastos', 'acertos', 'caixa'];
 // Junta local (a) e servidor (b): soma os itens dos dois; no mesmo id vale a alteração mais nova; apagados somem dos dois.
 function mesclar(a, b) {
   if (!b) return a;
-  const apagados = { ...(b.apagados || {}), ...(a.apagados || {}) };
+  const apagados = { ...(b.apagados || {}) };
+  Object.entries(a.apagados || {}).forEach(([id, t]) => { if (!(apagados[id] > t)) apagados[id] = t; });
   const out = { ...b, ...a, apagados, nome: (a.nomeMod || 0) >= (b.nomeMod || 0) ? a.nome : b.nome };
   // Categorias: vale a lista editada por último; se ninguém editou ainda, junta as duas.
   const ca = a.cats || [], cb = b.cats || [];
@@ -890,7 +908,8 @@ function mesclar(a, b) {
   LISTAS.forEach(k => {
     const m = {};
     (b[k] || []).concat(a[k] || []).forEach(it => { if (!m[it.id] || (it.mod || 0) >= (m[it.id].mod || 0)) m[it.id] = it; });
-    out[k] = Object.values(m).filter(it => !apagados[it.id]);
+    // Some só se foi apagado depois da última edição (item restaurado de backup volta a valer).
+    out[k] = Object.values(m).filter(it => !(apagados[it.id] >= (it.mod || 0)));
   });
   return out;
 }
