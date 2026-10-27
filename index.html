@@ -101,13 +101,18 @@ try { if (sessionStorage.getItem('rachai-sp')) document.documentElement.classLis
       <button class="btn outline hide" id="g-cancel" onclick="limparGasto()">Cancelar edição</button>
     </div>
     <div id="g-lista"><h3>Todos os gastos <small id="g-tot"></small></h3>
-      <div class="filtros">
-        <select id="f-ord" onchange="render()" aria-label="Ordenar"><option value="data">Mais recentes</option><option value="valor">Maior valor</option><option value="nome">Descrição (A-Z)</option></select>
-        <select id="f-cat" onchange="render()" aria-label="Categoria"></select>
-        <select id="f-pes" onchange="render()" aria-label="Pessoa"></select>
-        <button class="btn outline sm" onclick="limparFiltros()">Limpar filtros</button>
-        <label>De<input id="f-de" type="date" onchange="render()"></label>
-        <label>Até<input id="f-ate" type="date" onchange="render()"></label>
+      <div class="card pad filtros">
+        <div class="seg">
+          <label><input type="radio" name="ford" value="data" checked onchange="render()">Recentes</label>
+          <label><input type="radio" name="ford" value="valor" onchange="render()">Maior valor</label>
+          <label><input type="radio" name="ford" value="nome" onchange="render()">A–Z</label>
+        </div>
+        <div class="f-pills">
+          <label class="f-pill"><span>Categoria</span><select id="f-cat" onchange="render()"></select></label>
+          <label class="f-pill"><span>Quem pagou</span><select id="f-pes" onchange="render()"></select></label>
+          <label class="f-pill"><span>Mês</span><select id="f-mes" onchange="render()"></select></label>
+        </div>
+        <button class="f-limpar hide" id="f-limpar" onclick="limparFiltros()">✕ Limpar filtros</button>
       </div>
       <div class="card" id="lista-gastos"></div></div>
   <div id="g-fundo" class="hide" onclick="limparGasto()"></div>
@@ -245,6 +250,10 @@ try { if (sessionStorage.getItem('rachai-sp')) document.documentElement.classLis
 </div></nav>
 
 <div id="toast"></div>
+<div id="dlg" class="hide"><div class="dlg-box">
+  <p id="dlg-msg"></p><input id="dlg-in" class="hide">
+  <div class="dlg-btns"><button class="btn outline" id="dlg-nao">Cancelar</button><button class="btn" id="dlg-sim"></button></div>
+</div></div>
 <script>
 const KEY = 'viagem-contas';
 const STORE = 'rachai';
@@ -291,9 +300,13 @@ const saldoCaixa = (ignorar) => db.caixa.reduce((t, c) => t + (c.tipo === 'aport
 // Categorias valem para todas as viagens. "Outros" é fixa: recebe os gastos de categorias apagadas.
 const OUTROS = 'Outros';
 const CORES = ['#0E7490', '#22C55E', '#38BDF8', '#F59E0B', '#EC4899', '#8B5CF6', '#EF4444', '#84CC16'];
-const cats = () => store.cats || (store.cats = ['Hospedagem', 'Transporte', 'Alimentação', 'Passeio', 'Compras', OUTROS]);
+// Categorias são de cada grupo (vão junto na sincronização); grupo sem lista começa com as do aparelho.
+const cats = () => db.cats || (db.cats = (store.cats || ['Hospedagem', 'Transporte', 'Alimentação', 'Passeio', 'Compras', OUTROS]).slice());
+// Categoria usada num gasto que ainda não está na lista (criada no outro aparelho) entra antes de "Outros".
+const juntarCats = () => db.gastos.forEach(g => { if (g.cat && !cats().includes(g.cat)) cats().splice(cats().indexOf(OUTROS), 0, g.cat); });
 const ICON_EDIT = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4"/></svg>';
 const ICON_DEL = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>';
+const ICON_DUP = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg>';
 const btnEdit = fn => `<button class="icon-btn" onclick="${fn}" aria-label="Editar">${ICON_EDIT}</button>`;
 const btnDel = fn => `<button class="icon-btn" onclick="${fn}" aria-label="Apagar">${ICON_DEL}</button>`;
 const vazio = t => `<div class="empty">${t}</div>`;
@@ -340,7 +353,7 @@ function sugestoes(s) {
 
 const linhaGasto = (g, acoes) => `<div class="item">${av(ini(nome(g.pagou)))}
   <div class="t"><b>${g.desc}</b>${g.obs ? `<em class="obs">${g.obs}</em>` : ''}<span>${g.cat || 'Outros'} · ${dataBR(g.data)} ·${g.pagou === CAIXA ? 'pago com a caixinha' : `${nome(g.pagou)} pagou · ${g.vals ? 'valores diferentes · ' : ''}${g.part.length === db.pessoas.length ? 'todos' : g.part.map(nome).join(', ')}`}</span></div>
-  <div class="v">${brl(g.valor)}</div>${acoes ? `<div class="acts">${btnEdit(`editarGasto('${g.id}')`)}${btnDel(`del('gastos','${g.id}')`)}</div>` : ''}</div>`;
+  <div class="v">${brl(g.valor)}</div>${acoes ? `<div class="acts"><button class="icon-btn" onclick="duplicarGasto('${g.id}')" aria-label="Duplicar">${ICON_DUP}</button>${btnEdit(`editarGasto('${g.id}')`)}${btnDel(`del('gastos','${g.id}')`)}</div>` : ''}</div>`;
 
 function renderPart(marcados) {
   $('g-part').innerHTML = pessoasAZ().map(p =>
@@ -379,7 +392,7 @@ function render() {
     $(id).innerHTML = opts + (id === 'g-pagou' ? `<option value="${CAIXA}">Caixinha Pix</option>` : '');
     if (v && v !== CAIXA) $(id).value = v; // caixinha só se escolhida na hora, nunca como padrão
   });
-  if (!editGasto) { renderPart(); renderVals(); }
+  if (!editando()) { renderPart(); renderVals(); }
   mostrarPart();
 
   const s = saldos();
@@ -400,6 +413,7 @@ function render() {
     : ['comemorando', 'Tudo quitado! Conta fechada.'];
   $('mascote').innerHTML = mascote(pose, 84) + `<div class="balao">${fala}</div>`;
 
+  juntarCats();
   const porCat = {};
   db.gastos.forEach(g => porCat[g.cat || OUTROS] = (porCat[g.cat || OUTROS] || 0) + g.valor);
   const catSel = (document.querySelector('input[name=gcat]:checked') || {}).value;
@@ -449,11 +463,14 @@ function render() {
   // Lista da aba Gastos com filtros (categoria, pessoa, período) e ordenação.
   const sel = (id, ops, todos) => { const v = $(id).value; $(id).innerHTML = `<option value="">${todos}</option>` + ops; $(id).value = v; };
   sel('f-cat', cats().map(c => `<option>${c}</option>`).join(''), 'Todas as categorias');
-  sel('f-pes', pessoasAZ().map(p => `<option value="${p.id}">${p.nome}</option>`).join(''), 'Todas as pessoas');
-  const fc = $('f-cat').value, fp = $('f-pes').value, de = $('f-de').value, ate = $('f-ate').value;
-  const ord = { data: porData, valor: (a, b) => b.valor - a.valor, nome: (a, b) => a.desc.localeCompare(b.desc, 'pt') }[$('f-ord').value];
-  const filt = db.gastos.filter(g => (!fc || (g.cat || OUTROS) === fc) && (!fp || g.pagou === fp || g.part.includes(fp))
-    && (!de || g.data >= de) && (!ate || g.data <= ate)).sort(ord);
+  sel('f-pes', pessoasAZ().map(p => `<option value="${p.id}">${p.nome}</option>`).join('') + `<option value="${CAIXA}">Caixinha Pix</option>`, 'Todos');
+  const meses = [...new Set(db.gastos.map(g => g.data.slice(0, 7)))].sort().reverse();
+  sel('f-mes', meses.map(m => `<option value="${m}">${new Date(m + '-02').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</option>`).join(''), 'Todos');
+  const fc = $('f-cat').value, fp = $('f-pes').value, fm = $('f-mes').value;
+  ['f-cat', 'f-pes', 'f-mes'].forEach(id => $(id).parentNode.classList.toggle('on', !!$(id).value));
+  $('f-limpar').classList.toggle('hide', !(fc || fp || fm));
+  const ord = { data: porData, valor: (a, b) => b.valor - a.valor, nome: (a, b) => a.desc.localeCompare(b.desc, 'pt') }[document.querySelector('input[name=ford]:checked').value];
+  const filt = db.gastos.filter(g => (!fc || (g.cat || OUTROS) === fc) && (!fp || g.pagou === fp) && (!fm || g.data.startsWith(fm))).sort(ord);
   $('g-tot').textContent = `${filt.length} · ${brl(filt.reduce((t, g) => t + g.valor, 0))}`;
   $('lista-gastos').innerHTML = filt.map(g => linhaGasto(g, true)).join('') || vazio(db.gastos.length ? 'Nenhum gasto com esses filtros' : 'Nenhum gasto');
 
@@ -501,8 +518,8 @@ function verCat(c) {
 }
 
 function limparFiltros() {
-  ['f-cat', 'f-pes', 'f-de', 'f-ate'].forEach(id => $(id).value = '');
-  $('f-ord').value = 'data';
+  ['f-cat', 'f-pes', 'f-mes'].forEach(id => $(id).value = '');
+  document.querySelector('input[name=ford][value=data]').checked = true;
   render();
 }
 
@@ -651,6 +668,15 @@ function editarGasto(id) {
   modoEdicao('g', true, 'Editar gasto', 'Salvar alterações');
 }
 
+// Duplicar: abre o mesmo popup da edição já preenchido, mas salva como gasto novo com a data de hoje.
+function duplicarGasto(id) {
+  editarGasto(id);
+  editGasto = null;
+  $('g-data').value = hoje();
+  modoEdicao('g', true, 'Duplicar gasto', 'Adicionar gasto');
+}
+const editando = () => $('g-card').classList.contains('modal');
+
 function limparGasto() {
   editGasto = null;
   $('g-desc').value = $('g-obs').value = $('g-valor').value = ''; $('g-data').value = hoje();
@@ -726,15 +752,15 @@ function addAcerto() {
   avisar('Acerto registrado');
 }
 
-function quitar(de, para, valor) {
-  if (!confirm(`Registrar que ${nome(de)} pagou ${brl(valor)} para ${nome(para)}?`)) return;
+async function quitar(de, para, valor) {
+  if (!await dialogo(`Registrar que ${nome(de)} pagou ${brl(valor)} para ${nome(para)}?`, { ok: 'Registrar' })) return;
   db.acertos.push({ id: uid(), de, para, valor, data: hoje(), mod: agora() });
   salvar();
   avisar('Conta quitada');
 }
 
-function del(lista, id) {
-  if (!confirm('Apagar este item?')) return;
+async function del(lista, id) {
+  if (!await dialogo('Apagar este item?', { ok: 'Apagar' })) return;
   db[lista] = db[lista].filter(x => x.id !== id);
   apagar(id);
   if (id === editGasto) limparGasto();
@@ -767,9 +793,9 @@ function exportar() {
   a.click();
 }
 
-function importar(input) {
+async function importar(input) {
   const f = input.files[0];
-  if (!f || !confirm('Substituir os dados atuais pelo backup?')) return;
+  if (!f || !await dialogo('Substituir os dados atuais pelo backup?', { ok: 'Substituir' })) return;
   f.text().then(t => {
     store.viagens[store.atual] = { ...viagemVazia(db.nome), ...JSON.parse(t) };
     location.reload(localStorage.setItem(STORE, JSON.stringify(store)));
@@ -781,15 +807,16 @@ function addCat() {
   if (!n) return $('k-nome').focus();
   if (cats().some(c => c.toLowerCase() === n.toLowerCase())) return alert('Essa categoria já existe.');
   cats().splice(cats().length - 1, 0, n); // antes de "Outros"
+  db.catsMod = agora();
   $('k-nome').value = '';
   salvar();
 }
 
-// Troca a categoria "de" por "para" nos gastos de todas as viagens.
-const moverCat = (de, para) => Object.values(store.viagens).forEach(v => v.gastos.forEach(g => { if (g.cat === de) { g.cat = para; g.mod = agora(); } }));
+// Troca a categoria "de" por "para" nos gastos do grupo.
+const moverCat = (de, para) => { db.catsMod = agora(); db.gastos.forEach(g => { if (g.cat === de) { g.cat = para; g.mod = agora(); } }); };
 
-function renomearCat(i) {
-  const antigo = cats()[i], n = (prompt('Nome da categoria', antigo) || '').trim();
+async function renomearCat(i) {
+  const antigo = cats()[i], n = (await dialogo('Nome da categoria', { valor: antigo, ok: 'Salvar' }) || '').replace(/[<>"]/g, '');
   if (!n || n === antigo) return;
   if (cats().some(c => c.toLowerCase() === n.toLowerCase())) return alert('Essa categoria já existe.');
   cats()[i] = n;
@@ -797,19 +824,19 @@ function renomearCat(i) {
   salvar();
 }
 
-function delCat(i) {
+async function delCat(i) {
   const c = cats()[i];
-  if (!confirm(`Apagar a categoria "${c}"? Os gastos dela passam para "${OUTROS}".`)) return;
+  if (!await dialogo(`Apagar a categoria "${c}"? Os gastos dela passam para "${OUTROS}".`, { ok: 'Apagar' })) return;
   cats().splice(i, 1);
   moverCat(c, OUTROS);
   salvar();
 }
 
-function novaViagem() {
+async function novaViagem() {
   const n = $('v-nome').value.trim();
   if (!n) return $('v-nome').focus();
   const v = viagemVazia(n);
-  if (db.pessoas.length && confirm('Usar as mesmas pessoas do grupo atual?')) v.pessoas = db.pessoas.map(p => ({ ...p }));
+  if (db.pessoas.length && await dialogo('Usar as mesmas pessoas do grupo atual?', { ok: 'Usar' })) v.pessoas = db.pessoas.map(p => ({ ...p }));
   const id = uid();
   store.viagens[id] = v;
   $('v-nome').value = '';
@@ -825,17 +852,17 @@ function trocarViagem(id) {
   ir('resumo');
 }
 
-function renomearViagem(id) {
-  const n = prompt('Nome do grupo', store.viagens[id].nome);
-  if (!n || !n.trim()) return;
-  store.viagens[id].nome = n.trim();
+async function renomearViagem(id) {
+  const n = (await dialogo('Nome do grupo', { valor: store.viagens[id].nome, ok: 'Salvar' }) || '').replace(/[<>"]/g, '');
+  if (!n) return;
+  store.viagens[id].nome = n;
   store.viagens[id].nomeMod = agora();
   salvar();
 }
 
-function delViagem(id) {
+async function delViagem(id) {
   if (Object.keys(store.viagens).length === 1) return alert('Precisa existir ao menos um grupo.');
-  if (!confirm(`Apagar o grupo "${store.viagens[id].nome}" e todos os dados dela?`)) return;
+  if (!await dialogo(`Apagar o grupo "${store.viagens[id].nome}" e todos os dados dele?`, { ok: 'Apagar' })) return;
   delete store.viagens[id];
   if (id === store.atual) trocarViagem(Object.keys(store.viagens)[0]);
   else salvar();
@@ -856,6 +883,10 @@ function mesclar(a, b) {
   if (!b) return a;
   const apagados = { ...(b.apagados || {}), ...(a.apagados || {}) };
   const out = { ...b, ...a, apagados, nome: (a.nomeMod || 0) >= (b.nomeMod || 0) ? a.nome : b.nome };
+  // Categorias: vale a lista editada por último; se ninguém editou ainda, junta as duas.
+  const ca = a.cats || [], cb = b.cats || [];
+  out.cats = (a.catsMod || 0) > (b.catsMod || 0) ? ca : (b.catsMod || 0) > (a.catsMod || 0) ? cb
+    : [...new Set([...ca.filter(c => c !== OUTROS), ...cb.filter(c => c !== OUTROS), OUTROS])];
   LISTAS.forEach(k => {
     const m = {};
     (b[k] || []).concat(a[k] || []).forEach(it => { if (!m[it.id] || (it.mod || 0) >= (m[it.id].mod || 0)) m[it.id] = it; });
@@ -893,7 +924,7 @@ function sincronizar() {
     guardaPend();
     db = store.viagens[store.atual];
     localStorage.setItem(STORE, JSON.stringify(store));
-    if (!editGasto && !editCaixa) render();
+    if (!editando() && !editCaixa) render();
   }).finally(() => sincronizando = false);
 }
 const puxar = () => { if (!document.hidden) sincronizar(); };
@@ -940,6 +971,22 @@ function avisar(msg, erro) {
   clearTimeout(toastT);
   toastT = setTimeout(() => $('toast').classList.remove('on'), erro ? 3500 : 1800);
 }
+// Popup do app no lugar do confirm/prompt do navegador. Com valor: pede um texto (null se cancelar); sem: sim ou não.
+function dialogo(msg, { valor, ok = 'Confirmar' } = {}) {
+  return new Promise(res => {
+    const campo = valor !== undefined;
+    $('dlg-msg').textContent = msg;
+    $('dlg-in').classList.toggle('hide', !campo);
+    $('dlg-in').value = campo ? valor : '';
+    $('dlg-sim').textContent = ok;
+    $('dlg').classList.remove('hide');
+    if (campo) setTimeout(() => $('dlg-in').select(), 50);
+    const fim = v => { $('dlg').classList.add('hide'); res(v); };
+    $('dlg-sim').onclick = () => fim(campo ? $('dlg-in').value.trim() : true);
+    $('dlg-nao').onclick = () => fim(campo ? null : false);
+    $('dlg-in').onkeydown = e => { if (e.key === 'Enter') $('dlg-sim').onclick(); };
+  });
+}
 // Avisos de erro aparecem no próprio app (alert nativo é bloqueado em alguns navegadores).
 function alert(msg) { avisar(msg, true); }
 
@@ -947,7 +994,7 @@ setTema(document.documentElement.dataset.theme);
 recolher(!!localStorage.getItem('rachai-mini'));
 history.replaceState({ tab: 'resumo' }, '');
 window.addEventListener('popstate', e => {
-  if (editGasto) return limparGasto(); // voltar com o popup aberto só fecha a edição
+  if (editando()) return limparGasto(); // voltar com o popup aberto só fecha a edição
   ir((e.state || {}).tab || 'resumo', null, true);
 });
 // Ao abrir só desenha: nada é enviado antes da primeira busca no servidor (evita apagar dados do outro aparelho).

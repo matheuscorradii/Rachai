@@ -244,10 +244,15 @@ input.valor { font-family: var(--display); font-size: 28px; font-weight: 700; }
 .stat.link:active, .card.link:active, .legend .link:active { opacity: .7; }
 
 /* Filtros e ordenação da lista de gastos */
-.filtros { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
-.filtros select, .filtros input { padding: 10px 12px; font-size: 14px; }
-.filtros label { font-size: 12px; font-weight: 700; color: var(--muted); display: grid; gap: 4px; margin: 0; }
-.filtros .btn { align-self: stretch; margin: 0; }
+.filtros { margin-bottom: 12px; }
+.filtros .seg { margin-bottom: 10px; }
+.f-pills { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.f-pill { position: relative; margin: 0; display: block; border-radius: 16px; background: var(--soft); padding: 8px 12px 9px; border: 2px solid transparent; cursor: pointer; }
+.f-pill span { display: block; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.f-pill select { background: none !important; border: 0; padding: 2px 16px 0 0; font-size: 14px; font-weight: 700; color: var(--ink); text-overflow: ellipsis; }
+.f-pill::after { content: '▾'; position: absolute; right: 10px; bottom: 10px; font-size: 12px; color: var(--muted); pointer-events: none; }
+.f-pill.on { border-color: var(--accent, #22C55E); background: var(--card); }
+.f-limpar { margin-top: 10px; border: 0; background: none; color: var(--primary, #0E7490); font: 700 13px var(--font); cursor: pointer; padding: 4px 0; }
 .obs { display: block; font-style: italic; font-size: 13px; color: var(--muted); }
 
 /* Edição de gasto em popup sobre a lista */
@@ -268,3 +273,17 @@ input.valor { font-family: var(--display); font-size: 28px; font-weight: 700; }
   .mini .side > .btn::before { content: '+'; font-size: 26px; }
 }
 @media (max-width: 899px) { .mini-btn { display: none; } }
+
+/* Popup do app (no lugar do confirm/prompt do navegador) */
+#dlg { position: fixed; inset: 0; z-index: 120; background: rgba(2,11,22,.55); display: grid; place-items: center; padding: 16px; }
+.dlg-box { width: 100%; max-width: 360px; background: var(--card); border-radius: 24px; padding: 22px 18px 18px; box-shadow: 0 16px 40px rgba(0,0,0,.3); animation: sp-texto .25s ease both; }
+#dlg-msg { margin: 0 0 14px; font-weight: 700; font-size: 16px; text-align: center; }
+#dlg-in { margin-bottom: 14px; }
+.dlg-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.dlg-btns .btn { margin: 0; }
+
+/* Lista de gastos no celular: ações (duplicar, editar, apagar) numa linha própria para a descrição não espremer */
+@media (max-width: 599px) {
+  #lista-gastos .item { flex-wrap: wrap; row-gap: 0; }
+  #lista-gastos .acts { width: 100%; justify-content: flex-end; margin: -4px 0 -6px; }
+}
