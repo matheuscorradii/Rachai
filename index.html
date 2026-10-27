@@ -66,7 +66,7 @@ try { if (sessionStorage.getItem('rachai-sp')) document.documentElement.classLis
     </div>
     <div class="mascote" id="mascote"></div>
     <div class="two">
-      <div><h3>Saldo de cada um</h3><div class="card link" id="saldos" onclick="ir('pessoas')"></div></div>
+      <div><h3>Saldo de cada um</h3><div class="card" id="saldos"></div></div>
       <div><h3>Quem deve a quem <button class="btn ghost sm" onclick="compartilhar()">WhatsApp</button></h3><div class="card link" id="sugestoes" onclick="if(!event.target.closest('button'))ir('acerto')"></div></div>
       <div><h3>Gastos <small id="r-qtd"></small></h3><div class="card" id="r-gastos"></div></div>
       <div><h3>Por categoria</h3><div class="card pad" id="r-cats"></div></div>
@@ -250,6 +250,10 @@ try { if (sessionStorage.getItem('rachai-sp')) document.documentElement.classLis
 </div></nav>
 
 <div id="toast"></div>
+<div id="ext" class="hide" onclick="if(event.target === this) this.classList.add('hide')"><div class="dlg-box ext-box">
+  <div id="ext-topo"></div><div id="ext-lista"></div>
+  <button class="btn" onclick="$('ext').classList.add('hide')">Fechar</button>
+</div></div>
 <div id="dlg" class="hide"><div class="dlg-box">
   <p id="dlg-msg"></p><input id="dlg-in" class="hide">
   <div class="dlg-btns"><button class="btn outline" id="dlg-nao">Cancelar</button><button class="btn" id="dlg-sim"></button></div>
@@ -313,23 +317,47 @@ const vazio = t => `<div class="empty">${t}</div>`;
 const av = (txt, dark) => `<div class="av${dark ? ' dark' : ''}">${txt}</div>`;
 
 // Saldo > 0: tem a receber. Saldo < 0: deve.
+// Quanto do gasto é de cada pessoa (0 se não participa).
+function parte(g, id) {
+  if (g.vals) return g.vals[id] || 0;
+  const i = g.part.indexOf(id), n = g.part.length, base = Math.floor(g.valor / n);
+  // centavos que sobram vão para os primeiros participantes
+  return i < 0 ? 0 : base + (i < g.valor - base * n ? 1 : 0);
+}
+
 function saldos() {
   const s = {};
   db.pessoas.forEach(p => s[p.id] = 0);
   db.gastos.forEach(g => {
     if (g.pagou === CAIXA) return;
-    if (g.vals) {
-      s[g.pagou] = (s[g.pagou] || 0) + g.valor;
-      g.part.forEach(id => s[id] = (s[id] || 0) - g.vals[id]);
-      return;
-    }
-    const n = g.part.length, base = Math.floor(g.valor / n);
     s[g.pagou] = (s[g.pagou] || 0) + g.valor;
-    // centavos que sobram vão para os primeiros participantes
-    g.part.forEach((id, i) => s[id] = (s[id] || 0) - base - (i < g.valor - base * n ? 1 : 0));
+    g.part.forEach(id => s[id] = (s[id] || 0) - parte(g, id));
   });
   db.acertos.forEach(a => { s[a.de] += a.valor; s[a.para] -= a.valor; });
   return s;
+}
+
+// Extrato de uma pessoa: a parte dela em cada gasto pago por outro (deve), o que ela pagou pelos outros (a receber) e os acertos.
+// A soma das linhas é o saldo mostrado no Início.
+function extrato(id) {
+  const linhas = [];
+  db.gastos.forEach(g => {
+    if (g.pagou === CAIXA) return;
+    if (g.pagou === id) {
+      const v = g.valor - parte(g, id);
+      if (v) linhas.push({ data: g.data, txt: g.desc, sub: `você pagou · a parte dos outros`, v });
+    } else if (parte(g, id)) linhas.push({ data: g.data, txt: g.desc, sub: `${nome(g.pagou)} pagou · ${brl(g.valor)} no total`, v: -parte(g, id) });
+  });
+  db.acertos.forEach(a => {
+    if (a.de === id) linhas.push({ data: a.data, txt: `Pagou para ${nome(a.para)}`, sub: 'acerto', v: a.valor });
+    if (a.para === id) linhas.push({ data: a.data, txt: `Recebeu de ${nome(a.de)}`, sub: 'acerto', v: -a.valor });
+  });
+  const tot = saldos()[id];
+  $('ext-topo').innerHTML = `<div class="ext-head">${av(ini(nome(id)), tot > 0)}<div><b>${nome(id)}</b>
+    <span class="${tot < 0 ? 'neg' : tot > 0 ? 'pos' : ''}">${tot < 0 ? 'deve' : tot > 0 ? 'tem a receber' : 'tudo certo'} ${brl(Math.abs(tot))}</span></div></div>`;
+  $('ext-lista').innerHTML = linhas.sort(porData).map(l => `<div class="item"><div class="t"><b>${l.txt}</b><span>${dataBR(l.data)} · ${l.sub}</span></div>
+    <div class="v ${l.v < 0 ? 'neg' : 'pos'}">${l.v < 0 ? '−' : '+'} ${brl(Math.abs(l.v))}</div></div>`).join('') || vazio('Nada por aqui');
+  $('ext').classList.remove('hide');
 }
 
 function sugestoes(s) {
@@ -448,7 +476,7 @@ function render() {
     <div class="acts">${v.cod ? `<button class="icon-btn" onclick="compartilharCod('${v.cod}')" aria-label="Compartilhar código"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg></button>` : ''}${btnEdit(`renomearViagem('${id}')`)}${btnDel(`delViagem('${id}')`)}</div></div>`).join('');
   $('cx-info').textContent = `Entrou ${brl(aportes)} · gasto ${brl(aportes - cx)}`;
 
-  $('saldos').innerHTML = pessoasAZ().map(p => `<div class="item">${av(ini(p.nome), s[p.id] > 0)}
+  $('saldos').innerHTML = pessoasAZ().map(p => `<div class="item link" onclick="extrato('${p.id}')">${av(ini(p.nome), s[p.id] > 0)}
     <div class="t"><b>${p.nome}</b><span>${s[p.id] < 0 ? 'deve' : s[p.id] > 0 ? 'tem a receber' : 'tudo certo'}</span></div>
     <div class="v ${s[p.id] < 0 ? 'neg' : s[p.id] > 0 ? 'pos' : ''}">${brl(Math.abs(s[p.id]))}</div></div>`).join('')
     || vazio('Cadastre as pessoas na aba Pessoas');
