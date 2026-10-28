@@ -64,8 +64,8 @@ try { if (sessionStorage.getItem('rachai-sp')) document.documentElement.classLis
       <div class="stat cod hide" id="r-cod"></div>
       <div class="stat link" onclick="ir('gastos', 'g-lista')"><div class="k">Total dividido ›</div><div class="v" id="r-total"></div></div>
       <div class="stat link" onclick="ir('caixa')"><div class="k">Saldo da caixinha ›</div><div class="v" id="r-caixa"></div></div>
+      <div class="stat link full" onclick="ir('mes')"><div class="k">Divisão por salário ›</div><div class="sub">Quem deve pagar e gasto real do mês, pela proporção dos salários</div></div>
     </div>
-    <div class="stat link full" onclick="ir('mes')"><div class="k">Divisão por salário ›</div><div class="sub">Quem deve pagar e gasto real do mês, pela proporção dos salários</div></div>
     <div class="mascote" id="mascote"></div>
     <div class="two">
       <div><h3>Saldo de cada um</h3><div class="card" id="saldos"></div></div>
@@ -110,9 +110,9 @@ try { if (sessionStorage.getItem('rachai-sp')) document.documentElement.classLis
           <label><input type="radio" name="ford" value="nome" onchange="render()">A–Z</label>
         </div>
         <div class="f-pills">
-          <label class="f-pill"><span>Categoria</span><select id="f-cat" onchange="render()"></select></label>
-          <label class="f-pill"><span>Quem pagou</span><select id="f-pes" onchange="render()"></select></label>
-          <label class="f-pill"><span>Mês</span><select id="f-mes" onchange="render()"></select></label>
+          <label class="f-pill" onclick="escolher(this)"><span>Categoria</span><select id="f-cat" onchange="render()" tabindex="-1"></select></label>
+          <label class="f-pill" onclick="escolher(this)"><span>Quem pagou</span><select id="f-pes" onchange="render()" tabindex="-1"></select></label>
+          <label class="f-pill" onclick="escolher(this)"><span>Mês</span><select id="f-mes" onchange="render()" tabindex="-1"></select></label>
         </div>
         <button class="f-limpar hide" id="f-limpar" onclick="limparFiltros()">✕ Limpar filtros</button>
       </div>
@@ -273,6 +273,9 @@ try { if (sessionStorage.getItem('rachai-sp')) document.documentElement.classLis
   <div id="ext-topo"></div><div id="ext-lista"></div>
   <button class="btn" onclick="$('ext').classList.add('hide')">Fechar</button>
 </div></div>
+<div id="opc" class="hide" onclick="if(event.target === this) this.classList.add('hide')"><div class="dlg-box">
+  <p id="opc-tit"></p><div id="opc-lista"></div>
+</div></div>
 <div id="dlg" class="hide"><div class="dlg-box">
   <p id="dlg-msg"></p><input id="dlg-in" class="hide">
   <div class="dlg-btns"><button class="btn outline" id="dlg-nao">Cancelar</button><button class="btn" id="dlg-sim"></button></div>
@@ -407,6 +410,22 @@ function calcMes(gastos, sal, acertos) {
   console.assert(a.real.l === 10000 && a.real.m === 10753 && a.real.t === 9247, 'real 5000/4300', a.real);
   console.assert(a.saldo.m === 10753 - 30000 && a.saldo.l === 10000, 'saldo', a.saldo);
   console.assert(b.pct.m.toFixed(4) === '0.5612', 'pct muda com 5500', b.pct);
+}
+
+// Lista de opções do filtro no estilo do app (a lista nativa do navegador fica ilegível no tema escuro).
+function escolher(pill) {
+  const sel = pill.querySelector('select');
+  $('opc-tit').textContent = pill.querySelector('span').textContent;
+  $('opc-lista').innerHTML = [...sel.options].map(o =>
+    `<button class="opc ${o.value === sel.value ? 'on' : ''}" data-v="${o.value}">${o.text}</button>`).join('');
+  $('opc-lista').onclick = e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    sel.value = b.dataset.v;
+    $('opc').classList.add('hide');
+    render();
+  };
+  $('opc').classList.remove('hide');
 }
 
 function sugestoes(s) {

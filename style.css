@@ -249,7 +249,7 @@ input.valor { font-family: var(--display); font-size: 28px; font-weight: 700; }
 .f-pills { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .f-pill { position: relative; margin: 0; display: block; border-radius: 16px; background: var(--soft); padding: 8px 12px 9px; border: 2px solid transparent; cursor: pointer; }
 .f-pill span { display: block; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-.f-pill select { background: none !important; border: 0; padding: 2px 16px 0 0; font-size: 14px; font-weight: 700; color: var(--ink); text-overflow: ellipsis; }
+.f-pill select { pointer-events: none; background: none !important; border: 0; padding: 2px 16px 0 0; font-size: 14px; font-weight: 700; color: var(--ink); text-overflow: ellipsis; }
 .f-pill::after { content: '▾'; position: absolute; right: 10px; bottom: 10px; font-size: 12px; color: var(--muted); pointer-events: none; }
 .f-pill.on { border-color: var(--accent, #22C55E); background: var(--card); }
 .f-limpar { margin-top: 10px; border: 0; background: none; color: var(--primary, #0E7490); font: 700 13px var(--font); cursor: pointer; padding: 4px 0; }
@@ -298,5 +298,16 @@ input.valor { font-family: var(--display); font-size: 28px; font-weight: 700; }
 .ext-box > .btn { margin: 0; }
 
 /* Atalho para a divisão por salário no Início */
-.stat.full { grid-column: 1 / -1; margin-top: 12px; }
+.stat.full { grid-column: 1 / -1; }
 .stat .sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+/* Lista de opções dos filtros */
+#opc { position: fixed; inset: 0; z-index: 115; background: rgba(2,11,22,.55); display: grid; place-items: center; padding: 16px; }
+#opc .dlg-box { max-height: calc(100dvh - 32px); display: flex; flex-direction: column; }
+#opc-tit { margin: 0 0 12px; font-weight: 800; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); text-align: center; }
+#opc-lista { overflow-y: auto; display: grid; gap: 6px; }
+.opc { border: 2px solid transparent; background: var(--soft); color: var(--ink); font: 700 15px var(--font); text-align: left; padding: 13px 16px; border-radius: 14px; cursor: pointer; }
+.opc:active { opacity: .7; }
+.opc.on { background: var(--card); border-color: #22C55E; }
+.opc.on::after { content: '✓'; float: right; color: #22C55E; }
+:root[data-theme="dark"] { color-scheme: dark; }
