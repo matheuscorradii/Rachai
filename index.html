@@ -49,6 +49,7 @@ try { if (sessionStorage.getItem('rachai-sp')) document.documentElement.classLis
     <button data-t="acerto"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h13l-4-4M17 17H4l4 4"/></svg>Acerto</button>
     <button data-t="caixa"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18"/></svg>Caixinha</button>
     <button data-t="pessoas"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 15c3 0 5 1.5 5 4"/></svg>Pessoas</button>
+    <button data-t="mes"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18"/><circle cx="12" cy="12" r="9"/></svg>Salários</button>
     <button data-t="ajustes"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>Ajustes</button>
   </nav>
   <button class="btn" onclick="novoGasto()">+ Novo gasto</button>
@@ -64,6 +65,7 @@ try { if (sessionStorage.getItem('rachai-sp')) document.documentElement.classLis
       <div class="stat link" onclick="ir('gastos', 'g-lista')"><div class="k">Total dividido ›</div><div class="v" id="r-total"></div></div>
       <div class="stat link" onclick="ir('caixa')"><div class="k">Saldo da caixinha ›</div><div class="v" id="r-caixa"></div></div>
     </div>
+    <div class="stat link full" onclick="ir('mes')"><div class="k">Divisão por salário ›</div><div class="sub">Quem deve pagar e gasto real do mês, pela proporção dos salários</div></div>
     <div class="mascote" id="mascote"></div>
     <div class="two">
       <div><h3>Saldo de cada um</h3><div class="card" id="saldos"></div></div>
@@ -208,6 +210,23 @@ try { if (sessionStorage.getItem('rachai-sp')) document.documentElement.classLis
       <button class="round" onclick="addPessoa()" aria-label="Adicionar pessoa"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
     </div>
     <h3>Pessoas do grupo</h3><div class="card" id="lista-pessoas"></div>
+  </div>
+</section>
+
+<!-- DIVISÃO POR SALÁRIO -->
+<section class="tab" id="t-mes">
+  <div class="hero small"><div class="wrap"><h1>Divisão por salário</h1></div></div>
+  <div class="wrap">
+    <div class="card pad overlap">
+      <label style="margin-top:0">Mês</label><select id="m-mes" onchange="render()"></select>
+      <p class="hint">Preencha o salário de quem divide por proporção. Quem fica sem salário paga a parte igual de cada gasto.</p>
+      <div id="m-sal"></div>
+      <button class="btn" onclick="salvarSal()">Salvar salários</button>
+    </div>
+    <div class="two">
+      <div><h3>Quem deve pagar</h3><div class="card" id="m-deve"></div></div>
+      <div><h3>Gasto real <small>sem abater pagamentos</small></h3><div class="card" id="m-real"></div></div>
+    </div>
   </div>
 </section>
 
@@ -360,6 +379,36 @@ function extrato(id) {
   $('ext').classList.remove('hide');
 }
 
+// Divisão por salário de um mês. sal = { id: salário em centavos }; quem não tem salário paga a parte igual do gasto
+// (valor ÷ pessoas do gasto) e o resto se divide entre os assalariados do gasto pela proporção dos salários.
+// real: quanto cada um consumiu. saldo: real − gastos que pagou − acertos que fez + acertos que recebeu (> 0 deve, < 0 tem a receber).
+function calcMes(gastos, sal, acertos) {
+  const tem = id => sal[id] > 0, soma = Object.keys(sal).filter(tem).reduce((t, id) => t + sal[id], 0);
+  const pct = {}, real = {}, saldo = {};
+  Object.keys(sal).filter(tem).forEach(id => pct[id] = sal[id] / soma);
+  const add = (o, id, v) => o[id] = (o[id] || 0) + v;
+  gastos.forEach(g => {
+    if (g.pagou === CAIXA || !g.part.length) return;
+    const com = g.part.filter(tem), igual = g.valor / g.part.length;
+    const somaCom = com.reduce((t, id) => t + sal[id], 0);
+    const resto = g.valor - igual * (g.part.length - com.length);
+    g.part.forEach(id => { const v = tem(id) ? resto * sal[id] / somaCom : igual; add(real, id, v); add(saldo, id, v); });
+    add(saldo, g.pagou, -g.valor);
+  });
+  acertos.forEach(a => { add(saldo, a.de, -a.valor); add(saldo, a.para, a.valor); });
+  [real, saldo].forEach(o => Object.keys(o).forEach(id => o[id] = Math.round(o[id])));
+  return { pct, real, saldo };
+}
+// Auto-teste com os números de exemplo (aparece no console se a regra quebrar).
+{
+  const g = [{ valor: 30000, pagou: 'm', part: ['l', 'm', 't'] }];
+  const a = calcMes(g, { m: 500000, t: 430000 }, []), b = calcMes(g, { m: 550000, t: 430000 }, []);
+  console.assert(a.pct.m.toFixed(4) === '0.5376' && a.pct.t.toFixed(4) === '0.4624', 'pct 5000/4300', a.pct);
+  console.assert(a.real.l === 10000 && a.real.m === 10753 && a.real.t === 9247, 'real 5000/4300', a.real);
+  console.assert(a.saldo.m === 10753 - 30000 && a.saldo.l === 10000, 'saldo', a.saldo);
+  console.assert(b.pct.m.toFixed(4) === '0.5612', 'pct muda com 5500', b.pct);
+}
+
 function sugestoes(s) {
   const dev = [], rec = [];
   for (const id in s) {
@@ -413,7 +462,41 @@ function falta() {
 
 const mostrarPart =() => $('g-divide').classList.toggle('hide', $('g-pagou').value === CAIXA);
 
+const salMes = mes => ((db.salarios || {})[mes] || {}).v || {};
+function salvarSal() {
+  const mes = $('m-mes').value, v = {};
+  $('m-sal').querySelectorAll('input').forEach(i => { const c = cents(i.value); if (c > 0) v[i.dataset.id] = c; });
+  if (!Object.keys(v).length) return alert('Preencha ao menos um salário.');
+  (db.salarios = db.salarios || {})[mes] = { v, mod: agora() };
+  salvar();
+  avisar('Salários salvos');
+}
+function renderMes() {
+  const atual = hoje().slice(0, 7);
+  const meses = [...new Set([atual, ...db.gastos.map(g => g.data.slice(0, 7)), ...Object.keys(db.salarios || {})])].sort().reverse();
+  const mes = $('m-mes').value || atual;
+  $('m-mes').innerHTML = meses.map(m => `<option value="${m}">${new Date(m + '-02').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</option>`).join('');
+  $('m-mes').value = mes;
+  const sal = salMes(mes);
+  // Não redesenha os campos enquanto a pessoa digita (a sincronização chama render a cada 20 s).
+  if ($('m-sal').dataset.mes !== mes || !$('m-sal').contains(document.activeElement)) {
+    $('m-sal').dataset.mes = mes;
+    $('m-sal').innerHTML = pessoasAZ().map(p => `<div class="vrow"><span>${p.nome}</span>
+      <input type="text" inputmode="numeric" data-money placeholder="sem salário" data-id="${p.id}" value="${sal[p.id] ? fmtV(sal[p.id]) : ''}"></div>`).join('') || vazio('Cadastre as pessoas primeiro');
+  }
+  if (!Object.keys(sal).length) return $('m-deve').innerHTML = $('m-real').innerHTML = vazio('Preencha os salários do mês');
+  const r = calcMes(db.gastos.filter(g => g.data.startsWith(mes)), sal, db.acertos.filter(a => a.data.startsWith(mes)));
+  const pctTxt = id => r.pct[id] ? (r.pct[id] * 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%' : 'parte igual';
+  const lista = (o, linha) => pessoasAZ().filter(p => p.id in o).map(p => linha(p, o[p.id])).join('') || vazio('Nenhum gasto no mês');
+  $('m-deve').innerHTML = lista(r.saldo, (p, v) => `<div class="item">${av(ini(p.nome), v < 0)}
+    <div class="t"><b>${p.nome}</b><span>${pctTxt(p.id)} · consumiu ${brl(r.real[p.id] || 0)}</span></div>
+    <div class="v ${v > 0 ? 'neg' : v < 0 ? 'pos' : ''}">${v > 0 ? 'deve ' : v < 0 ? 'recebe ' : ''}${brl(Math.abs(v))}</div></div>`);
+  $('m-real').innerHTML = lista(r.real, (p, v) => `<div class="item">${av(ini(p.nome))}
+    <div class="t"><b>${p.nome}</b><span>${pctTxt(p.id)}</span></div><div class="v">${brl(v)}</div></div>`);
+}
+
 function render() {
+  renderMes();
   const opts = pessoasAZ().map(p => `<option value="${p.id}">${p.nome}</option>`).join('');
   ['g-pagou', 'a-de', 'a-para'].forEach(id => {
     const v = $(id).value;
@@ -933,6 +1016,8 @@ function mesclar(a, b) {
   const ca = a.cats || [], cb = b.cats || [];
   out.cats = (a.catsMod || 0) > (b.catsMod || 0) ? ca : (b.catsMod || 0) > (a.catsMod || 0) ? cb
     : [...new Set([...ca.filter(c => c !== OUTROS), ...cb.filter(c => c !== OUTROS), OUTROS])];
+  out.salarios = { ...(b.salarios || {}) };
+  Object.entries(a.salarios || {}).forEach(([mes, v]) => { if (!out.salarios[mes] || v.mod >= out.salarios[mes].mod) out.salarios[mes] = v; });
   LISTAS.forEach(k => {
     const m = {};
     (b[k] || []).concat(a[k] || []).forEach(it => { if (!m[it.id] || (it.mod || 0) >= (m[it.id].mod || 0)) m[it.id] = it; });

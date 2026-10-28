@@ -296,3 +296,7 @@ input.valor { font-family: var(--display); font-size: 28px; font-weight: 700; }
 .ext-head span { font-weight: 700; font-size: 14px; }
 #ext-lista { flex: 1; min-height: 0; overflow-y: auto; margin-bottom: 14px; }
 .ext-box > .btn { margin: 0; }
+
+/* Atalho para a divisão por salário no Início */
+.stat.full { grid-column: 1 / -1; margin-top: 12px; }
+.stat .sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
