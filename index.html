@@ -219,7 +219,8 @@ try { if (sessionStorage.getItem('rachai-sp')) document.documentElement.classLis
   <div class="wrap">
     <div class="card pad overlap">
       <label style="margin-top:0">Mês</label><select id="m-mes" onchange="render()"></select>
-      <p class="hint">Preencha o salário de quem divide por proporção. Quem fica sem salário paga a parte igual de cada gasto.</p>
+      <p class="hint">Preencha o salário de quem divide por proporção. Quem fica sem salário paga a parte igual de cada gasto. Gasto lançado "Por valor" fica fora da proporção.</p>
+      <p class="hint" id="m-aviso" style="color:var(--primary,#0E7490);font-weight:700"></p>
       <div id="m-sal"></div>
       <button class="btn" onclick="salvarSal()">Salvar salários</button>
     </div>
@@ -393,11 +394,13 @@ function calcMes(gastos, sal, acertos) {
   const add = (o, id, v) => o[id] = (o[id] || 0) + v;
   gastos.forEach(g => {
     if (g.pagou === CAIXA || !g.part.length) return;
+    add(saldo, g.pagou, -g.valor);
+    // Gasto "Por valor" já tem a parte de cada um definida: fica fora da proporção (ex.: aliança meio a meio).
+    if (g.vals) return g.part.forEach(id => { add(real, id, g.vals[id] || 0); add(saldo, id, g.vals[id] || 0); });
     const com = g.part.filter(tem), igual = g.valor / g.part.length;
     const somaCom = com.reduce((t, id) => t + sal[id], 0);
     const resto = g.valor - igual * (g.part.length - com.length);
     g.part.forEach(id => { const v = tem(id) ? resto * sal[id] / somaCom : igual; add(real, id, v); add(saldo, id, v); });
-    add(saldo, g.pagou, -g.valor);
   });
   acertos.forEach(a => { add(saldo, a.de, -a.valor); add(saldo, a.para, a.valor); });
   [real, saldo].forEach(o => Object.keys(o).forEach(id => o[id] = Math.round(o[id])));
@@ -483,6 +486,13 @@ function falta() {
 const mostrarPart =() => $('g-divide').classList.toggle('hide', $('g-pagou').value === CAIXA);
 
 const salMes = mes => ((db.salarios || {})[mes] || {}).v || {};
+// Mês sem salário salvo usa o último salvo antes dele (ou o primeiro depois): dá para ver o valor na hora,
+// e salvar fixa no mês sem mudar os outros.
+function salUsado(mes) {
+  const ms = Object.keys(db.salarios || {}).sort();
+  const de = ms.includes(mes) ? mes : ms.filter(m => m < mes).pop() || ms.find(m => m > mes);
+  return { de, sal: de ? salMes(de) : {} };
+}
 function salvarSal() {
   const mes = $('m-mes').value, v = {};
   $('m-sal').querySelectorAll('input').forEach(i => { const c = cents(i.value); if (c > 0) v[i.dataset.id] = c; });
@@ -494,10 +504,13 @@ function salvarSal() {
 function renderMes() {
   const atual = hoje().slice(0, 7);
   const meses = [...new Set([atual, ...db.gastos.map(g => g.data.slice(0, 7)), ...Object.keys(db.salarios || {})])].sort().reverse();
-  const mes = $('m-mes').value || atual;
-  $('m-mes').innerHTML = meses.map(m => `<option value="${m}">${new Date(m + '-02').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</option>`).join('');
+  const nomeMes = m => new Date(m + '-02').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  // Abre no último mês que tem gastos (o mês em que se lança o salário costuma ser o seguinte).
+  const mes = $('m-mes').value || meses.find(m => db.gastos.some(g => g.data.startsWith(m))) || atual;
+  $('m-mes').innerHTML = meses.map(m => `<option value="${m}">${nomeMes(m)}</option>`).join('');
   $('m-mes').value = mes;
-  const sal = salMes(mes);
+  const { de, sal } = salUsado(mes);
+  $('m-aviso').textContent = de && de !== mes ? `Usando os salários de ${nomeMes(de)}. Toque em Salvar para fixar neste mês.` : '';
   // Não redesenha os campos enquanto a pessoa digita (a sincronização chama render a cada 20 s).
   if ($('m-sal').dataset.mes !== mes || !$('m-sal').contains(document.activeElement)) {
     $('m-sal').dataset.mes = mes;
