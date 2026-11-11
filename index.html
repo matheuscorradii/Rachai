@@ -1171,7 +1171,7 @@ function criarPrimeiro() {
   salvar();
 }
 function compartilharCod(cod) {
-  const txt = `Entre no grupo "${db.nome}" no Rachaí: https://matheuscorradii.github.io/App_Financeiro_Viagem/?entrar=${cod}`;
+  const txt = `Entre no grupo "${db.nome}" no Rachaí: https://matheuscorradii.github.io/Rachai/?entrar=${cod}`;
   window.open('https://api.whatsapp.com/send?text=' + encodeURIComponent(txt));
 }
 document.addEventListener('visibilitychange', puxar);
