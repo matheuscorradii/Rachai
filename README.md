@@ -2,7 +2,7 @@
 
 App simples de organização financeira para dividir gastos em grupo (casa, viagem, mercado), no estilo do Splitwise. Funciona no celular como um app instalado, inclusive offline.
 
-**Acesse:** https://matheuscorradii.github.io/App_Financeiro_Viagem/
+**Acesse:** https://matheuscorradii.github.io/Rachai/
 
 ## O que ele faz
 
