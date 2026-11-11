@@ -66,6 +66,7 @@ try { if (sessionStorage.getItem('rachai-sp')) document.documentElement.classLis
       <div class="stat link" onclick="ir('caixa')"><div class="k">Saldo da caixinha ›</div><div class="v" id="r-caixa"></div></div>
       <div class="stat link full" onclick="ir('mes')"><div class="k">Divisão por salário ›</div><div class="sub">Quem deve pagar e gasto real do mês, pela proporção dos salários</div></div>
     </div>
+    <div class="filtros" style="margin:16px 0 20px"><label class="f-pill on" onclick="escolher(this)"><span>Mês</span><select id="i-mes" onchange="mesIni = this.value; render()" tabindex="-1"></select></label></div>
     <div class="mascote" id="mascote"></div>
     <div class="two">
       <div><h3>Saldo de cada um</h3><div class="card" id="saldos"></div></div>
@@ -134,7 +135,8 @@ try { if (sessionStorage.getItem('rachai-sp')) document.documentElement.classLis
         <div><label>Valor</label><input id="a-valor" type="text" inputmode="numeric" data-money placeholder="0,00"></div>
         <div><label>Data</label><input id="a-data" type="date"></div>
       </div>
-      <button class="btn" onclick="addAcerto()">Registrar acerto</button>
+      <button class="btn" id="a-btn" onclick="addAcerto()">Registrar acerto</button>
+      <button class="btn ghost hide" id="a-cancel" onclick="fimEditAcerto()" style="margin-top:8px">Cancelar edição</button>
     </div>
     <div><h3>Histórico</h3><div class="card" id="lista-acertos"></div></div>
   </div>
@@ -318,6 +320,9 @@ const nome = id => id === CAIXA ? 'Caixinha Pix' : (db.pessoas.find(p => p.id ==
 const ini = n => n.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const porData = (a, b) => b.data.localeCompare(a.data);
+// Mês mostrado no Início ('' = todos). Começa no mês atual: o mês fechado sai da conta principal.
+let mesIni = (d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'))(new Date());
+const doMes = x => !mesIni || x.data.startsWith(mesIni);
 const pessoasAZ = () => db.pessoas.slice().sort((a, b) => a.nome.localeCompare(b.nome, 'pt'));
 // Marca de alteração por item: a sincronização usa para decidir qual versão vale.
 const agora = () => Date.now();
@@ -352,12 +357,12 @@ function parte(g, id) {
 function saldos() {
   const s = {};
   db.pessoas.forEach(p => s[p.id] = 0);
-  db.gastos.forEach(g => {
+  db.gastos.filter(doMes).forEach(g => {
     if (g.pagou === CAIXA) return;
     s[g.pagou] = (s[g.pagou] || 0) + g.valor;
     g.part.forEach(id => s[id] = (s[id] || 0) - parte(g, id));
   });
-  db.acertos.forEach(a => { s[a.de] += a.valor; s[a.para] -= a.valor; });
+  db.acertos.filter(doMes).forEach(a => { s[a.de] += a.valor; s[a.para] -= a.valor; });
   return s;
 }
 
@@ -365,14 +370,14 @@ function saldos() {
 // A soma das linhas é o saldo mostrado no Início.
 function extrato(id) {
   const linhas = [];
-  db.gastos.forEach(g => {
+  db.gastos.filter(doMes).forEach(g => {
     if (g.pagou === CAIXA) return;
     if (g.pagou === id) {
       const v = g.valor - parte(g, id);
       if (v) linhas.push({ data: g.data, txt: g.desc, sub: `você pagou · a parte dos outros`, v });
     } else if (parte(g, id)) linhas.push({ data: g.data, txt: g.desc, sub: `${nome(g.pagou)} pagou · ${brl(g.valor)} no total`, v: -parte(g, id) });
   });
-  db.acertos.forEach(a => {
+  db.acertos.filter(doMes).forEach(a => {
     if (a.de === id) linhas.push({ data: a.data, txt: `Pagou para ${nome(a.para)}`, sub: 'acerto', v: a.valor });
     if (a.para === id) linhas.push({ data: a.data, txt: `Recebeu de ${nome(a.de)}`, sub: 'acerto', v: -a.valor });
   });
@@ -427,7 +432,7 @@ function escolher(pill) {
     if (!b) return;
     sel.value = b.dataset.v;
     $('opc').classList.add('hide');
-    render();
+    sel.dispatchEvent(new Event('change')); // roda o onchange do select (todos chamam render)
   };
   $('opc').classList.remove('hide');
 }
@@ -539,8 +544,13 @@ function render() {
   if (!editando()) { renderPart(); renderVals(); }
   mostrarPart();
 
+  const nomeM = m => new Date(m + '-02').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  const mesesIni = [...new Set(db.gastos.concat(db.acertos).map(g => g.data.slice(0, 7)).concat(mesIni || []))].sort().reverse();
+  $('i-mes').innerHTML = mesesIni.map(m => `<option value="${m}">${nomeM(m)}</option>`).join('') + '<option value="">Todos os meses</option>';
+  $('i-mes').value = mesIni;
+  const gMes = db.gastos.filter(doMes);
   const s = saldos();
-  const total = db.gastos.filter(g => g.pagou !== CAIXA).reduce((t, g) => t + g.valor, 0);
+  const total = gMes.filter(g => g.pagou !== CAIXA).reduce((t, g) => t + g.valor, 0);
   // Movimentações antigas do tipo "gasto" + gastos pagos com a caixinha.
   const movCaixa = db.caixa.concat(db.gastos.filter(g => g.pagou === CAIXA).map(g => ({ ...g, tipo: 'gasto', doGasto: true })));
   const aportes = db.caixa.filter(c => c.tipo === 'aporte').reduce((t, c) => t + c.valor, 0);
@@ -548,18 +558,18 @@ function render() {
   $('cx-saldo').textContent = brl(cx);
   $('r-total').textContent = brl(total);
   $('r-caixa').textContent = brl(cx);
-  $('r-qtd').textContent = db.gastos.length + (db.gastos.length === 1 ? ' item' : ' itens');
+  $('r-qtd').textContent = gMes.length + (gMes.length === 1 ? ' item' : ' itens');
   document.querySelectorAll('.hd-viagem').forEach(b => b.textContent = db.nome + ' ▾');
 
   const pend = sugestoes(s).length;
-  const [pose, fala] = !db.gastos.length ? ['feliz', 'Bora rachar essa conta?']
+  const [pose, fala] = !gMes.length ? ['feliz', 'Bora rachar essa conta?']
     : pend ? ['preocupada', pend === 1 ? 'Falta 1 acerto para fechar a conta.' : `Faltam ${pend} acertos para fechar a conta.`]
     : ['comemorando', 'Tudo quitado! Conta fechada.'];
   $('mascote').innerHTML = mascote(pose, 84) + `<div class="balao">${fala}</div>`;
 
   juntarCats();
   const porCat = {};
-  db.gastos.forEach(g => porCat[g.cat || OUTROS] = (porCat[g.cat || OUTROS] || 0) + g.valor);
+  gMes.forEach(g => porCat[g.cat || OUTROS] = (porCat[g.cat || OUTROS] || 0) + g.valor);
   const catSel = (document.querySelector('input[name=gcat]:checked') || {}).value;
   $('g-cat').innerHTML = cats().map(c => `<label><input type="radio" name="gcat" value="${c}" ${c === catSel ? 'checked' : ''}>${c}</label>`).join('');
   $('lista-cats').innerHTML = cats().map((c, i) => `<div class="item"><div class="t"><b>${c}</b></div>
@@ -602,7 +612,7 @@ function render() {
     <button class="btn sm" onclick="quitar('${t.de}','${t.para}',${t.valor})">Quitar</button></div>`).join('')
     || vazio('Tudo acertado');
 
-  const gastos = db.gastos.slice().sort(porData);
+  const gastos = gMes.slice().sort(porData);
   $('r-gastos').innerHTML = gastos.map(g => linhaGasto(g, false)).join('') || vazio('Nenhum gasto');
   // Lista da aba Gastos com filtros (categoria, pessoa, período) e ordenação.
   const sel = (id, ops, todos) => { const v = $(id).value; $(id).innerHTML = `<option value="">${todos}</option>` + ops; $(id).value = v; };
@@ -620,7 +630,7 @@ function render() {
 
   $('acertos').innerHTML = $('lista-acertos').innerHTML = db.acertos.slice().sort(porData).map(a => `<div class="item">${av(ini(nome(a.de)))}
     <div class="t"><b>${nome(a.de)} → ${nome(a.para)}</b><span>${dataBR(a.data)}</span></div>
-    <div class="v">${brl(a.valor)}</div><div class="acts">${btnDel(`del('acertos','${a.id}')`)}</div></div>`).join('')
+    <div class="v">${brl(a.valor)}</div><div class="acts">${btnEdit(`editAcerto('${a.id}')`)}${btnDel(`del('acertos','${a.id}')`)}</div></div>`).join('')
     || vazio('Nenhum pagamento ainda');
 
   $('lista-caixa').innerHTML = movCaixa.sort(porData).map(c => `<div class="item">
@@ -890,15 +900,45 @@ function addAcerto() {
   if (!(valor > 0) || !de || de === para) return alert('Escolha duas pessoas diferentes e um valor.');
   const data = lerData('a-data');
   if (!data) return;
-  db.acertos.push({ id: uid(), de, para, valor, data, mod: agora() });
-  $('a-valor').value = '';
+  const a = db.acertos.find(a => a.id === acEdit);
+  if (a) Object.assign(a, { de, para, valor, data, mod: agora() });
+  else db.acertos.push({ id: uid(), de, para, valor, data, mod: agora() });
+  avisar(a ? 'Acerto alterado' : 'Acerto registrado');
+  fimEditAcerto();
   salvar();
-  avisar('Acerto registrado');
+}
+
+// Editar acerto: carrega no formulário da aba Acerto; o botão passa a salvar a alteração.
+let acEdit = null;
+function editAcerto(id) {
+  const a = db.acertos.find(a => a.id === id);
+  if (!a) return;
+  acEdit = id;
+  // Popup igual ao do gasto: o card vai para o body (a tela tem transform) com um fundo escuro atrás.
+  const card = $('a-card');
+  if (card.parentNode !== document.body) {
+    card.after(Object.assign(document.createElement('div'), { id: 'a-lugar' }));
+    document.body.append(Object.assign(document.createElement('div'), { id: 'a-fundo', onclick: fimEditAcerto }), card);
+    card.classList.add('modal');
+  }
+  $('a-de').value = a.de; $('a-para').value = a.para; $('a-valor').value = fmtV(a.valor); $('a-data').value = a.data;
+  $('a-btn').textContent = 'Salvar alteração';
+  $('a-cancel').classList.remove('hide');
+}
+function fimEditAcerto() {
+  acEdit = null;
+  $('a-valor').value = ''; $('a-data').value = hoje();
+  $('a-btn').textContent = 'Registrar acerto';
+  $('a-cancel').classList.add('hide');
+  const card = $('a-card');
+  if (card.parentNode === document.body) { $('a-lugar').replaceWith(card); $('a-fundo').remove(); card.classList.remove('modal'); }
 }
 
 async function quitar(de, para, valor) {
   if (!await dialogo(`Registrar que ${nome(de)} pagou ${brl(valor)} para ${nome(para)}?`, { ok: 'Registrar' })) return;
-  db.acertos.push({ id: uid(), de, para, valor, data: hoje(), mod: agora() });
+  // Quitando um mês já passado, o acerto entra no último dia dele para zerar aquele mês.
+  const fim = mesIni && mesIni < hoje().slice(0, 7) ? new Date(+mesIni.slice(0, 4), +mesIni.slice(5), 0).getDate() : 0;
+  db.acertos.push({ id: uid(), de, para, valor, data: fim ? `${mesIni}-${fim}` : hoje(), mod: agora() });
   salvar();
   avisar('Conta quitada');
 }
