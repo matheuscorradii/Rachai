@@ -280,6 +280,16 @@ try { if (sessionStorage.getItem('rachai-sp')) document.documentElement.classLis
 <div id="opc" class="hide" onclick="if(event.target === this) this.classList.add('hide')"><div class="dlg-box">
   <p id="opc-tit"></p><div id="opc-lista"></div>
 </div></div>
+<!-- Primeira vez: escolher entre entrar num grupo ou criar um. Nada é gravado antes da escolha. -->
+<div id="boas" class="hide"><div class="dlg-box">
+  <p style="margin:0 0 14px;font-weight:800;font-size:18px;text-align:center">Bem-vindo ao Rachaí!</p>
+  <label style="margin-top:0">Já tem um grupo? Digite o código</label>
+  <input id="b-cod" placeholder="Código (ex.: K7P2XQ9M)" style="text-transform:uppercase" onkeydown="if(event.key==='Enter')entrarViagem(this.value)">
+  <button class="btn" style="margin-top:8px" onclick="entrarViagem($('b-cod').value)">Entrar no grupo</button>
+  <label style="margin-top:18px">Ou crie um grupo novo</label>
+  <input id="b-nome" placeholder="Nome do grupo (ex.: Casa)" onkeydown="if(event.key==='Enter')criarPrimeiro()">
+  <button class="btn outline" style="margin-top:8px" onclick="criarPrimeiro()">Criar grupo</button>
+</div></div>
 <div id="dlg" class="hide"><div class="dlg-box">
   <p id="dlg-msg"></p><input id="dlg-in" class="hide">
   <div class="dlg-btns"><button class="btn outline" id="dlg-nao">Cancelar</button><button class="btn" id="dlg-sim"></button></div>
@@ -296,6 +306,9 @@ if (!store) {
   const antigo = JSON.parse(localStorage.getItem(KEY) || 'null');
   store = { atual: 'v1', viagens: { v1: { ...viagemVazia('Meu grupo'), ...antigo } } };
 }
+// Aparelho novo (só o grupo provisório, vazio e sem código): pergunta se entra num grupo ou cria um.
+const soVazio = () => { const vs = Object.values(store.viagens); return vs.length === 1 && !vs[0].cod && !vs[0].pessoas.length && !vs[0].gastos.length; };
+const primeira = soVazio();
 let db = store.viagens[store.atual];
 // migra versão antiga (valor inicial único) para movimentação de aporte
 if (db.caixaInicial) db.caixa.unshift({ id: 'ini', tipo: 'aporte', desc: 'Valor inicial', valor: db.caixaInicial, data: (db.caixa[0] || {}).data || new Date().toISOString().slice(0, 10) });
@@ -1145,9 +1158,17 @@ function entrarViagem(link) {
     const id = uid();
     store.viagens[id] = limpo({ ...viagemVazia('Grupo'), ...d, cod });
     $('v-cod').value = '';
+    if (!$('boas').classList.contains('hide')) { delete store.viagens[store.atual]; $('boas').classList.add('hide'); } // descarta o grupo vazio provisório
     trocarViagem(id);
     avisar('Você entrou no grupo');
   }).catch(() => alert('Sem conexão. Tente de novo.'));
+}
+function criarPrimeiro() {
+  const n = $('b-nome').value.trim().replace(/[<>"]/g, '');
+  if (!n) return $('b-nome').focus();
+  db.nome = n; db.nomeMod = agora();
+  $('boas').classList.add('hide');
+  salvar();
 }
 function compartilharCod(cod) {
   const txt = `Entre no grupo "${db.nome}" no Rachaí: https://matheuscorradii.github.io/App_Financeiro_Viagem/?entrar=${cod}`;
@@ -1209,6 +1230,7 @@ else { try { sessionStorage.setItem('rachai-sp', '1'); } catch (e) {} passoSplas
 puxar();
 // Link de convite (?entrar=CODIGO): entra na viagem e limpa o endereço.
 const convite = new URLSearchParams(location.search).get('entrar');
+if (primeira) $('boas').classList.remove('hide');
 if (convite) { history.replaceState(null, '', location.pathname); entrarViagem(convite); }
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');

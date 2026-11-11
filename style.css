@@ -275,6 +275,7 @@ input.valor { font-family: var(--display); font-size: 28px; font-weight: 700; }
 @media (max-width: 899px) { .mini-btn { display: none; } }
 
 /* Popup do app (no lugar do confirm/prompt do navegador) */
+#boas { position: fixed; inset: 0; z-index: 110; background: rgba(2,11,22,.55); display: grid; place-items: center; padding: 16px; }
 #dlg { position: fixed; inset: 0; z-index: 120; background: rgba(2,11,22,.55); display: grid; place-items: center; padding: 16px; }
 .dlg-box { width: 100%; max-width: 360px; background: var(--card); border-radius: 24px; padding: 22px 18px 18px; box-shadow: 0 16px 40px rgba(0,0,0,.3); animation: sp-texto .25s ease both; }
 #dlg-msg { margin: 0 0 14px; font-weight: 700; font-size: 16px; text-align: center; }
